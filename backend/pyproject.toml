@@ -1,0 +1,122 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reader-backend"
+version = "0.1.0"
+description = "Backend API for the reader PWA"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic-settings",
+    "sqlalchemy",
+    "alembic",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "httpx",
+    "ruff",
+    "mypy",
+    "import-linter",
+    "bandit",
+    "pip-audit",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM", "C4"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "domain is pure"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = [
+    "app.ports",
+    "app.services",
+    "app.adapters",
+    "app.api",
+    "app.core",
+    "app.main",
+    "fastapi",
+    "sqlalchemy",
+    "pydantic",
+    "starlette",
+    "httpx",
+]
+
+[[tool.importlinter.contracts]]
+name = "ports only depend on domain"
+type = "forbidden"
+source_modules = ["app.ports"]
+forbidden_modules = [
+    "app.services",
+    "app.adapters",
+    "app.api",
+    "app.core",
+    "app.main",
+    "fastapi",
+    "sqlalchemy",
+]
+
+[[tool.importlinter.contracts]]
+name = "services only depend on domain and ports"
+type = "forbidden"
+source_modules = ["app.services"]
+forbidden_modules = [
+    "app.adapters",
+    "app.api",
+    "app.core",
+    "app.main",
+    "fastapi",
+    "sqlalchemy",
+]
+
+[[tool.importlinter.contracts]]
+name = "core does not depend on application layers"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = ["app.api", "app.services", "app.adapters", "app.main"]
+
+[[tool.importlinter.contracts]]
+name = "adapters do not depend on api or services"
+type = "forbidden"
+source_modules = ["app.adapters"]
+forbidden_modules = ["app.api", "app.services", "app.main"]
+
+# Exception: app.api.deps is the single composition point allowed to import adapters.
+[[tool.importlinter.contracts]]
+name = "api does not import adapters (except deps) nor sqlalchemy"
+type = "forbidden"
+source_modules = ["app.api"]
+forbidden_modules = ["app.adapters", "sqlalchemy"]
+ignore_imports = ["app.api.deps -> app.adapters", "app.api.deps -> app.adapters.**"]
+unmatched_ignore_imports_alerting = "none"

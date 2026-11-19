@@ -1,0 +1,15 @@
+# Config do gitleaks usada por scripts/check.ps1 e scripts/check.sh.
+title = "livros"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Diretorios de dependencias/artefatos (nao sao codigo do projeto)"
+paths = [
+  '''(^|[\\/])\.venv([\\/]|$)''',
+  '''(^|[\\/])venv([\\/]|$)''',
+  '''(^|[\\/])node_modules([\\/]|$)''',
+  '''(^|[\\/])dist([\\/]|$)''',
+  '''(^|[\\/])\.git([\\/]|$)''',
+]

@@ -1,0 +1,39 @@
+/* Color tokens. Light is the default; dark applies via data-theme (set by ThemeProvider)
+   and, before JS runs, via prefers-color-scheme.
+
+   Each token is declared ONCE as `var(--if-dark, <dark>) var(--if-light, <light>)`.
+   The mode switches below set one toggle to `initial` (its fallback is used) and the other to
+   an empty value (it contributes nothing). The two dark triggers therefore share one palette. */
+:root {
+  color-scheme: light;
+  --if-dark: ;
+  --if-light: initial;
+
+  --color-bg: var(--if-dark, #121316) var(--if-light, #ffffff);
+  --color-surface: var(--if-dark, #1c1e23) var(--if-light, #f4f5f7);
+  --color-text: var(--if-dark, #eceef2) var(--if-light, #1b1d21);
+  --color-text-muted: var(--if-dark, #9aa1ad) var(--if-light, #5f6672);
+  --color-border: var(--if-dark, #2f333b) var(--if-light, #d9dce1);
+  --color-accent: var(--if-dark, #748ffc) var(--if-light, #3b5bdb);
+  --color-accent-contrast: var(--if-dark, #0b0c0f) var(--if-light, #ffffff);
+  --color-danger: var(--if-dark, #ff8787) var(--if-light, #c92a2a);
+  --color-success: var(--if-dark, #69db7c) var(--if-light, #2b8a3e);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --if-dark: initial;
+    --if-light: ;
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --if-dark: initial;
+  --if-light: ;
+}

@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY (min 32 chars)}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?set ALLOWED_ORIGINS (JSON list)}
+      # Only source of the real client IP (uvicorn --forwarded-allow-ips). A proxy on the host
+      # reaches the container via the bridge gateway (e.g. 172.17.0.1 or 172.16.0.0/12), never
+      # 127.0.0.1. "*" only if the port is not directly reachable. See .env.example.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-172.17.0.1}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      LIBRARY_PATH: /library
+      DATABASE_URL: sqlite:////data/app.db
+    volumes:
+      # Paths resolve relative to this file (infra/), so ../library is <repo root>/library.
+      - ../library:/library:ro
+      - app-data:/data
+    ports:
+      # Loopback only by default. To expose on the network, set BIND_ADDRESS in .env
+      # (e.g. 0.0.0.0) - prefer keeping it on 127.0.0.1 behind a reverse proxy.
+      - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8000}:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  app-data:
