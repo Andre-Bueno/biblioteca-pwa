@@ -3,7 +3,7 @@
 # headers. TLS, proxy and network are the server's job (docs/DEPLOY.md).
 
 # ---- Stage 1: build the frontend (nothing from this stage but dist/ reaches the runtime) ----
-FROM node:24.21.0-slim AS frontend-build
+FROM node:24.22.3-slim AS frontend-build
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
