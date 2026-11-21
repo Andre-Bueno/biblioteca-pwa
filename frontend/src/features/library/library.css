@@ -98,7 +98,7 @@
 .card:focus-visible {
   outline: 3px solid var(--color-accent);
   outline-offset: 3px;
-  border-radius: 0.5rem;
+  border-radius: 1rem;
 }
 
 .card--disabled {

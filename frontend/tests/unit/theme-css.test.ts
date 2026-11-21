@@ -11,7 +11,7 @@ describe('theme.css tokens', () => {
       '#eceef2',
       '#9aa1ad',
       '#2f333b',
-      '#748ffc',
+      '#34d399',
       '#0b0c0f',
     ]) {
       expect(css.split(dark)).toHaveLength(2);

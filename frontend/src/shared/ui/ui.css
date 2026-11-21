@@ -188,7 +188,7 @@
   aspect-ratio: 2 / 3;
   width: 100%;
   min-height: 0;
-  border-radius: 0.5rem;
+  border-radius: 1rem;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   overflow: hidden;

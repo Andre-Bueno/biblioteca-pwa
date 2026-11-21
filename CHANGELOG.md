@@ -4,6 +4,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+## [0.1.1] - 2026-11-21
+
+### Changed
+- Frontend: cor de destaque do tema passou de azul para verde-esmeralda (`#34d399` no escuro, `#0b7a55` no claro; contraste AA) e `theme_color` do manifest PWA acompanha; capas (`.cover`) com cantos de 1rem.
+
 ## [0.1.0] - 2026-11-21
 
 ### Added

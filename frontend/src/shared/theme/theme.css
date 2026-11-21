@@ -14,7 +14,7 @@
   --color-text: var(--if-dark, #eceef2) var(--if-light, #1b1d21);
   --color-text-muted: var(--if-dark, #9aa1ad) var(--if-light, #5f6672);
   --color-border: var(--if-dark, #2f333b) var(--if-light, #d9dce1);
-  --color-accent: var(--if-dark, #748ffc) var(--if-light, #3b5bdb);
+  --color-accent: var(--if-dark, #34d399) var(--if-light, #0b7a55);
   --color-accent-contrast: var(--if-dark, #0b0c0f) var(--if-light, #ffffff);
   --color-danger: var(--if-dark, #ff8787) var(--if-light, #c92a2a);
   --color-success: var(--if-dark, #69db7c) var(--if-light, #2b8a3e);
