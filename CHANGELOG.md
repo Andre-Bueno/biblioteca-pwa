@@ -4,6 +4,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+## [0.1.0] - 2026-11-21
+
 ### Added
 - Backend: leitura de EPUB (`domain/book.py`, `ports/book_reader.py`, `services/book.py`, `api/books.py`, `adapters/extractors/epub.py` com `_epub_safe.py`, `_epub_html.py` e `_epub_css.py`): `GET /api/v1/items/{id}/book` (metadados e sumário), `/book/chapters/{n}` (HTML sanitizado; `theme` e `size`) e `/book/res/{rid}` (imagens). DRM recusado; fontes e SVG nunca servidos (ADR 0017, proposto).
 - Backend: migração `0008` (`users.book_font_scale`, 80 a 200, padrão 100; `users.book_theme`, auto, light, dark ou sepia, padrão auto), expostas em `GET` e `PUT /api/v1/me/preferences`.

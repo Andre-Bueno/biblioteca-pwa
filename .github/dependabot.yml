@@ -35,10 +35,20 @@ updates:
         dependency-type: production
     commit-message:
       prefix: "chore(deps)"
+    # eslint 10 breaks eslint-plugin-react (peer range stops at ^9.7); revisit when the plugin supports it.
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /infra
     schedule:
       interval: weekly
+    # The Dockerfile is pinned to Node 24 (LTS) by tests/integration/test_docker_files.py; skip newer majors.
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(docker)"
