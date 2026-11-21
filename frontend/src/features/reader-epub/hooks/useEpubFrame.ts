@@ -6,6 +6,7 @@ import {
   scrollTopFromBp,
   swipeChapterStep,
 } from '../locator';
+import { createPinchGuard, createReflowHold } from '../pinch';
 
 export interface FrameCallbacks {
   /**
@@ -133,30 +134,83 @@ export function useEpubFrame({ frameRef, chapter, positionRef, anchorRef, callba
     }
     latest.current.onLoaded(true);
 
-    listen(win, 'scroll', () => {
+    const pinch = createPinchGuard();
+    const hold = createReflowHold(win.innerWidth);
+    // Zoom (pinch, ctrl + wheel / +) reflows the page: keep the position the reader was at and
+    // never save what the browser scrolled meanwhile (but look again once the noise is over).
+    const applyBp = (value: number) => {
+      const el = scrollerOf(doc);
+      const top = scrollTopFromBp(value, el.scrollHeight, el.clientHeight);
+      if (Math.abs(el.scrollTop - top) >= 1) el.scrollTop = top;
+    };
+    listen(win, 'resize', () => {
+      // Width changes only: a height-only resize (Safari toolbars) neither holds nor re-applies.
+      if (hold.onResize(win.innerWidth, Date.now()) && state.settled) {
+        applyBp(positionRef.current ?? 0);
+      }
+    });
+    let recheck: ReturnType<typeof setTimeout> | null = null;
+    const evaluate = () => {
       if (!state.settled && !state.gesture) return; // still settling
+      const now = Date.now();
+      const wait = Math.max(pinch.remaining(now), hold.remaining(now));
+      if (wait > 0) {
+        recheck ??= setTimeout(() => {
+          recheck = null;
+          evaluate();
+        }, wait + 30);
+        return;
+      }
       const bp = currentBp();
       positionRef.current = bp;
       latest.current.onPosition(loadedChapter, bp, state.gesture || bp >= floor);
+    };
+    listen(win, 'scroll', evaluate);
+    disposers.push(() => {
+      if (recheck !== null) clearTimeout(recheck);
     });
+    const reset = () => pinch.reset();
+    listen(win, 'blur', reset);
+    listen(doc, 'visibilitychange', reset);
 
     const markGesture = () => {
       state.gesture = true;
+      hold.userMoved(Date.now()); // a user scroll ends any reflow hold
     };
-    listen(doc, 'wheel', markGesture, true);
-    listen(doc, 'touchmove', markGesture, true);
+    listen(
+      doc,
+      'wheel',
+      (event: WheelEvent) => {
+        if (!event.ctrlKey) markGesture(); // ctrl + wheel is the browser zoom
+      },
+      true,
+    );
+    listen(
+      doc,
+      'touchmove',
+      (event: TouchEvent) => {
+        const now = Date.now();
+        pinch.touches(event.touches.length, now);
+        if (!pinch.blocked(now)) markGesture();
+      },
+      true,
+    );
+    listen(doc, 'touchcancel', reset, true);
 
     let touchStart: { x: number; y: number } | null = null;
     listen(doc, 'touchstart', (event: TouchEvent) => {
+      pinch.start(event.touches.length, Date.now());
       const touch = event.touches[0];
       touchStart =
         touch && event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : null;
     });
     listen(doc, 'touchend', (event: TouchEvent) => {
+      pinch.touches(event.touches.length, Date.now());
       const touch = event.changedTouches[0];
       const start = touchStart;
       touchStart = null;
       if (!touch || !start) return;
+      if (pinch.blocked(Date.now())) return; // a pinch is never a page swipe
       if (win.getSelection()?.toString()) return;
       const step = swipeChapterStep(touch.clientX - start.x, touch.clientY - start.y);
       if (step) latest.current.onSwipe(step);
@@ -185,6 +239,7 @@ export function useEpubFrame({ frameRef, chapter, positionRef, anchorRef, callba
         return;
       }
       if (win.getSelection()?.toString()) return; // selecting text is not a tap
+      if (pinch.blocked(Date.now())) return; // end of a pinch is not a tap
       if (isCenterTap(event.clientX, win.innerWidth)) latest.current.onToggleControls();
     });
 

@@ -2,7 +2,7 @@
 
 Estado: 2026-11-21. Funcionalidade → arquivos que existem no disco → lacunas.
 
-**Como as contagens foram obtidas:** backend = número de linhas `def test` por arquivo (grep no disco; parametrizados **não** expandidos). Frontend = linhas `it(`, `test(` ou `it.each(` por arquivo (grep; `it.each` conta como um bloco, não expandido). Infra e CI = `def test` em `infra/deploy-hook/` e `.github/scripts/`. Os resultados de execução (`scripts/check`, CI) são os informados pelo dono e pelo coordenador, não reexecutados aqui. Totais de contagem: backend 1120 funções em 95 arquivos; frontend 330 blocos em 25 arquivos (315 + 15 das suítes novas da tira vertical); infra e CI 59 funções em 2 arquivos.
+**Como as contagens foram obtidas:** backend = número de linhas `def test` por arquivo (grep no disco; parametrizados **não** expandidos). Frontend = linhas `it(`, `test(` ou `it.each(` por arquivo (grep; `it.each` conta como um bloco, não expandido). Infra e CI = `def test` em `infra/deploy-hook/` e `.github/scripts/`. Os resultados de execução (`scripts/check`, CI) são os informados pelo dono e pelo coordenador, não reexecutados aqui. Totais de contagem: backend 1120 funções em 95 arquivos; frontend 364 blocos em 28 arquivos (27 em `tests/unit`, 1 em `tests/regression`); infra e CI 59 funções em 2 arquivos.
 
 ## Backend: arquivo → funções → cobre
 
@@ -123,7 +123,8 @@ Rodam no job `infra-tests` do CI (`ci.yml`) e no `scripts/check`.
 | Existentes | 001 a 013 e 015 a 027 |
 | Reservado | `014` → FIND-2026-009 (aberto; só se houver mitigação aprovada) |
 | Próximo livre | `028` (conferido em `backend/tests/regression/`) |
-| Frontend | `frontend/tests/regression/` vazia (só `.gitkeep`) |
+| Frontend | `frontend/tests/regression/`, numeração própria (`reg_NNN`), independente do backend (`test_reg_NNN`). `reg_001` (issue #7) não tem relação com `test_reg_001` (REG-001). `.gitkeep` mantido |
+| Frontend: existentes e próximo livre | `reg_001` (zoom/pinça no EPUB, 19 blocos); próximo livre `reg_002` |
 
 Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-003 → reg_008; FIND-004 → reg_009; FIND-005 → reg_010; FIND-006 → reg_011; FIND-007 → reg_012; FIND-008 → reg_013; FIND-010 → reg_015; FIND-011 → reg_016; FIND-012 → reg_017. M-1 (REG-001) → reg_001. Sem finding correspondente: reg_018 a reg_027.
 
@@ -147,6 +148,7 @@ Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-0
 | `frontend/tests/unit/reader-epub.test.tsx` | 49 | Leitor EPUB: capítulos, progresso, painéis e preferências do livro |
 | `frontend/tests/unit/epub-locator.test.ts` | 17 | Locator de livro (`capítulo * 10000 + offset_bp`), lógica pura do leitor EPUB e sandbox de todos os iframes do leitor (página e tira) |
 | `frontend/tests/unit/epub-strip.test.ts` | 7 | Tira vertical do EPUB: janela de capítulos, posição, altura e conversão de posição |
+| `frontend/tests/unit/epub-pinch.test.ts` | 9 | `createPinchGuard` (multitoque, toque perdido, reset, expiração) e `createReflowHold` (só largura, rolagem do usuário, extensão) |
 | `frontend/tests/unit/reader-epub-vertical.test.tsx` | 11 | Leitor EPUB em modo vertical: tira, janela montada, progresso e fim do livro; altura de capítulo com `html`/`body` 100%; barras em toque |
 | `frontend/tests/unit/auto-hide-controls.test.ts` | 3 | `useAutoHideControls`: oculto por padrão só em toque, auto-ocultar após 4 s, `keepAlive` e `paused`, com mouse não oculta |
 | `frontend/tests/unit/progress-saver.test.ts` | 8 | Debounce, um envio por vez, retry, `flush` com `keepalive`, `dispose` |
@@ -157,6 +159,7 @@ Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-0
 | `frontend/tests/unit/pwa-update.test.tsx` | 10 | Service worker em modo `prompt`: nunca recarrega sozinho; "Recarregar" faz flush do progresso antes; "Depois" só esconde; configuração sem `skipWaiting` |
 | `frontend/tests/unit/theme-css.test.ts` | 3 | Tokens do tema: cada valor escuro uma vez; gatilhos escuros; tokens em `:root` |
 | `frontend/tests/unit/theme.test.tsx` | 2 | Tema: sistema por padrão; troca explícita; sem localStorage |
+| `frontend/tests/regression/reg_001_epub_zoom_no_page_change.test.tsx` | 19 | reg_001 (issue #7): zoom/pinça no EPUB não troca capítulo, não move a posição e não salva progresso; tira vertical e capítulo único |
 
 Helpers (não são teste): `frontend/tests/setup.ts`, `frontend/tests/helpers/fake-api.ts`, `frontend/tests/helpers/render-app.tsx`, `frontend/tests/helpers/epub-frame.ts`. Fixtures de arquitetura: `frontend/tests/fixtures/arch-*/` (8 diretórios, uma violação cada).
 
@@ -164,7 +167,7 @@ Helpers (não são teste): `frontend/tests/setup.ts`, `frontend/tests/helpers/fa
 
 | Item | Pasta | Status |
 |---|---|---|
-| Regressão frontend | `frontend/tests/regression/` | vazia (`.gitkeep`) |
+| Regressão frontend | `frontend/tests/regression/` | só `reg_001` (issue #7); demais correções de frontend sem `reg_NNN` |
 | E2E (login, mangá na página 5 e retomada, tema, offline, série, EPUB) | `frontend/tests/e2e/` | vazia; Playwright sem navegadores instalados |
 | Service worker: instalação e registro real | — | não testados no navegador; há testes de configuração e do aviso (`pwa-update.test.tsx`) |
 | Leitor PDF e CBR | — | sem código, sem teste |

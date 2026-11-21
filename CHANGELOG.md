@@ -4,6 +4,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+## [0.1.4] - 2026-11-21
+
+### Fixed
+- Frontend: zoom por pinça, ctrl+scroll e ctrl+/- no leitor EPUB trocava de capítulo, movia a posição e salvava progresso (issue #7). O multitoque não vira deslize, toque central nem salvamento, e a posição é mantida quando a largura da janela muda (`features/reader-epub/pinch.ts`; teste `frontend/tests/regression/reg_001_epub_zoom_no_page_change.test.tsx`).
+
 ## [0.1.3] - 2026-11-21
 
 ### Added

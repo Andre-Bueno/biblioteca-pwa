@@ -30,6 +30,7 @@ Dados e chamadas HTTP ficam em `shared/` (`session/api.ts`, `preferences/api.ts`
 - Não usar `localStorage`/`sessionStorage` para nada (ESLint). Estado de leitura e de preferência vem do servidor.
 - EPUB renderiza em iframe `sandbox="allow-same-origin"` sem `allow-scripts`, `allow-forms`, `allow-popups` nem `allow-top-navigation` (ADR 0017). Dois pontos de iframe: `components/EpubReaderPage.tsx` (um capítulo) e `components/EpubStrip.tsx` (leitura vertical, um por capítulo). O capítulo vem já sanitizado pelo servidor. Proibido `dangerouslySetInnerHTML` com conteúdo não sanitizado.
 - Locator de livro: `capítulo * 10000 + offset_bp` (lógica em `features/reader-epub/locator.ts`); progresso de mangá e PDF é página.
+- EPUB: zoom/pinça não altera capítulo nem progresso salvo.
 - Aviso de nova versão (`shared/system`, `app/AppUpdatePrompt`): **só admin**; nunca mostrado a usuário comum; notas e nomes em texto puro; link só https do GitHub do repositório; consulta de versão no máximo a cada 30 min com a aba visível; acompanhamento após o pedido com 5 s entre consultas e no máximo 60; "Agora não" vale até recarregar. Nenhuma atualização acontece sozinha.
 - Service worker em `registerType: 'prompt'`: nova versão espera; **nada recarrega sozinho**. "Recarregar" faz `flushAllProgress` antes de ativar o worker. `skipWaiting` e `clientsClaim` continuam desligados.
 - CSRF: enviar o token CSRF em toda requisição que altera estado (centralizado no `api-client`). Tratar `429` (bloqueio por tentativas) com mensagem clara e sem revelar se o usuário existe.

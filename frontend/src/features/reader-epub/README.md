@@ -12,4 +12,11 @@ O servidor entrega cada capítulo como documento HTML já saneado; ele vive **ap
 - Altura dos capítulos no modo contínuo: `strip.ts#unlockDocumentHeight` força `height:auto`/`min-height:0` (via CSSOM, `!important`) em `html` e `body` de cada capítulo antes de medir. Livros (mangá) costumam trazer `html, body { height: 100% }`; sem isso a medida só repete a altura do iframe, o capítulo fica do tamanho da tela e a página aparece cortada/rolando dentro de uma "moldura". O sandbox não muda e nenhum script roda no livro.
 - Controles (barras): `shared/hooks/useAutoHideControls`. Em dispositivo de toque (`(hover: none) and (pointer: coarse)`) o leitor abre em tela cheia (barras ocultas, só um indicador `capítulo/total · %` no canto), toque no centro mostra/oculta e as barras somem após 4 s sem interação (toque, foco ou tecla dentro delas reinicia a espera; painel aberto ou slider em uso mantém). Botão ☰ "Mostrar controles" e a tecla `m` revelam sem toque; safe-area do iOS nas barras e no botão. Com mouse, as barras continuam visíveis até alternar.
 
+- Zoom (issue #7): pinça (2+ toques), ctrl+scroll e ctrl+/ctrl- ampliam a página sem trocar de capítulo nem alterar o progresso salvo. `pinch.ts` concentra as regras e constantes:
+  - `createPinchGuard`: marca o multitoque e bloqueia enquanto durar e por 600 ms depois. Um touchstart de 1 dedo, touchcancel, blur da janela e página oculta encerram o bloqueio; sem evento de toque por 2 s ele expira.
+  - `createReflowHold`: segura a posição só quando a **largura** da janela muda (zoom do navegador, rotação). Resize só de altura (barras do Safari) não segura nem reaplica; resize logo após rolagem do usuário (150 ms) também não; rolar durante o hold o encerra.
+- Durante a pinça ou o hold, a rolagem não vira swipe, toque central nem relatório de posição; ao fim da janela há uma única reavaliação da posição (nada se perde). Wheel com ctrlKey não conta como gesto.
+- Modo contínuo: reaplica capítulo e offset relativo (anchor) a cada mudança de altura durante o hold. Capítulo único: reaplica a posição só no resize de largura. A altura de reserva dos capítulos não montados é fixada na abertura.
+- Testes: `frontend/tests/regression/reg_001_epub_zoom_no_page_change.test.tsx` e `frontend/tests/unit/epub-pinch.test.ts`.
+
 Não importar outras features.

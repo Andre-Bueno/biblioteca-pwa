@@ -371,6 +371,7 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/src/features/reader-epub/hooks/useEpubStrip.ts` | Leitura vertical contínua: janela de iframes, posição, progresso e rolagem (modo "Vertical") | features |
 | `frontend/src/features/reader-epub/components/EpubStrip.tsx` | Tira vertical do livro: um iframe por capítulo, reserva de altura nos não montados | features |
 | `frontend/src/features/reader-epub/strip.ts` | Lógica pura da tira vertical: janela (1 antes, 3 depois), posição e altura do capítulo; `unlockDocumentHeight` (libera `html`/`body` 100% via CSSOM antes de medir) | features |
+| `frontend/src/features/reader-epub/pinch.ts` | Zoom sem efeito de posição: `createPinchGuard` (multitoque, bloqueio até 600 ms após o fim, expira em 2 s) e `createReflowHold` (segura a posição só na mudança de largura); constantes `PINCH_SETTLE_MS`, `PINCH_STALE_MS`, `RESIZE_HOLD_MS`, `RESIZE_EXTEND_MS`, `USER_SCROLL_MS` | features |
 | `frontend/src/features/reader-pdf/README.md` | Esqueleto (Fase 4). Não importar outras features | docs |
 | `frontend/src/features/progress/README.md` | Reservada: o código de progresso fica em `shared/progress` | docs |
 | `frontend/src/features/settings/index.ts` | Exporta `SettingsPage` | features |
@@ -475,6 +476,7 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/tests/unit/reader-epub.test.tsx` | Leitor EPUB: capítulos, progresso, painéis e preferências do livro | teste |
 | `frontend/tests/unit/epub-locator.test.ts` | Locator de livro (`capítulo * 10000 + offset_bp`) e lógica pura do leitor EPUB; guarda de sandbox dos dois iframes (página e tira vertical) | teste |
 | `frontend/tests/unit/epub-strip.test.ts` | Lógica pura da tira vertical: janela, posição, altura e progresso | teste |
+| `frontend/tests/unit/epub-pinch.test.ts` | `createPinchGuard` (multitoque, toque perdido, reset, expiração) e `createReflowHold` (só largura, rolagem do usuário, extensão) | teste |
 | `frontend/tests/unit/reader-epub-vertical.test.tsx` | Leitor EPUB em modo vertical: tira, janela de capítulos, progresso e fim do livro; altura de capítulo com `html`/`body` 100%; barras em toque (tela cheia, toque no centro, ☰) | teste |
 | `frontend/tests/unit/auto-hide-controls.test.ts` | `useAutoHideControls`: em toque começa oculto, toque mostra e oculta após o atraso; `keepAlive` reinicia a espera e `paused` mantém; com mouse nunca oculta por tempo | teste |
 | `frontend/tests/unit/progress-saver.test.ts` | Debounce, um envio por vez, retry, `flush` com `keepalive`, `dispose` | teste |
@@ -485,7 +487,8 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/tests/unit/pwa-update.test.tsx` | Service worker em modo `prompt`: nunca recarrega sozinho; "Recarregar" faz flush do progresso antes; "Depois" só esconde; configuração sem `skipWaiting` | teste |
 | `frontend/tests/fixtures/arch-*/` (8) | Fixtures que devem violar uma regra cada (`arch-violation`, `arch-feature-app`, `arch-shared-feature`, `arch-shared-app`, `arch-cycle`, `arch-type-only`, `arch-unresolvable`, `arch-dev-dep`) | teste |
 | `frontend/tests/e2e/.gitkeep` | Pasta vazia (E2E ainda não existe) | teste |
-| `frontend/tests/regression/.gitkeep` | Pasta vazia (nenhum `reg_NNN` de frontend ainda) | teste |
+| `frontend/tests/regression/.gitkeep` | Pasta de regressão do frontend | teste |
+| `frontend/tests/regression/reg_001_epub_zoom_no_page_change.test.tsx` | reg_001 (issue #7): zoom/pinça no EPUB não troca capítulo, não move a posição e não salva progresso; tira vertical e capítulo único | teste |
 
 Removidos (entrega do MVP, 2026-11-20): `frontend/src/app/HomePage.tsx`, `frontend/src/app/useHealth.ts`, `frontend/tests/unit/home.test.tsx`. Removido em 2026-11-21: `frontend/src/features/library/components/ItemCard.tsx` (substituído por `SeriesCard.tsx`). Movido em 2026-11-21: `features/reader-manga/hooks/useReaderNav.ts` → `shared/series/useReaderNav.ts`.
 

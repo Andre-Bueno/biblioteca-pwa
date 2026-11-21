@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BP_MAX, encodeLocator, isCenterTap, parseGotoHref } from '../locator';
+import { createPinchGuard, createReflowHold } from '../pinch';
 import {
   STRIP_SUPPRESS_MS,
   locateInStrip,
@@ -66,7 +67,13 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
     targetBp: jump.bp,
     shift: 0,
     rescroll: false,
+    anchor: { chapter: jump.chapter, bp: jump.bp },
   });
+  // Placeholder height: fixed at mount. The iOS toolbars collapsing while zooming change
+  // `innerHeight`; a live value would move the chapters above the view and lose the position.
+  const fallback = useRef(fallbackHeight());
+  const pinch = useRef(createPinchGuard());
+  const hold = useRef(createReflowHold(typeof window === 'undefined' ? 0 : window.innerWidth));
   const disposers = useRef(new Map<number, () => void>());
 
   useEffect(() => {
@@ -92,6 +99,17 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
     el.scrollTop = scrollTopForPosition(block, s.targetBp);
   }, [blocks]);
 
+  const scrollToAnchor = useCallback(() => {
+    const el = containerRef.current;
+    const s = state.current;
+    const block = blocks()[s.anchor.chapter];
+    if (!el || !block) return;
+    const top = scrollTopForPosition(block, s.anchor.bp);
+    if (Math.abs(el.scrollTop - top) < 1) return;
+    s.suppressUntil = Date.now() + STRIP_SUPPRESS_MS;
+    el.scrollTop = top;
+  }, [blocks]);
+
   // Applies what a height change asks for: keep the view still (chapters above grew or shrank)
   // or put the jump target back at the top (the layout above it moved while it loaded).
   const flush = useCallback(() => {
@@ -106,12 +124,18 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
         return;
       }
     }
+    if (hold.current.active(Date.now())) {
+      // Viewport resized (zoom, rotation, toolbars): chapter and relative offset stay put.
+      s.shift = 0;
+      scrollToAnchor();
+      return;
+    }
     if (s.shift !== 0) {
       s.suppressUntil = Date.now() + STRIP_SUPPRESS_MS;
       el.scrollTop += s.shift;
       s.shift = 0;
     }
-  }, [scrollToTarget]);
+  }, [scrollToTarget, scrollToAnchor]);
 
   useLayoutEffect(() => {
     flush();
@@ -125,6 +149,8 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
     s.gesture = false; // a new jump settles again: only a fresh gesture re-enables reports
     s.target = jump.chapter;
     s.targetBp = jump.bp;
+    s.anchor = { chapter: jump.chapter, bp: jump.bp };
+    hold.current.userMoved(0); // a jump ends any reflow hold
     if (jump.nonce > 0) s.floor = 0; // the user moved on purpose
     scrollToTarget();
   }, [enabled, jump, scrollToTarget]);
@@ -132,14 +158,50 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
   const markGesture = useCallback(() => {
     state.current.gesture = true;
     state.current.scrolledSinceJump = true;
+    hold.current.userMoved(Date.now()); // a user scroll ends any reflow hold
   }, []);
+
+  /** Pinch tracking + the gesture mark of a touch move (a pinch is zoom, not a scroll). */
+  const onTouchStart = useCallback((event: { touches: { length: number } }) => {
+    pinch.current.start(event.touches.length, Date.now());
+  }, []);
+  const onTouchEnd = useCallback((event: { touches: { length: number } }) => {
+    pinch.current.touches(event.touches.length, Date.now());
+  }, []);
+  const onTouchCancel = useCallback(() => pinch.current.reset(), []);
+  const onTouchMove = useCallback(
+    (event: { touches: { length: number } }) => {
+      const now = Date.now();
+      pinch.current.touches(event.touches.length, now);
+      if (!pinch.current.blocked(now)) markGesture();
+    },
+    [markGesture],
+  );
+  const onWheel = useCallback(
+    (event: { ctrlKey?: boolean }) => {
+      if (!event.ctrlKey) markGesture(); // ctrl + wheel is the browser zoom
+    },
+    [markGesture],
+  );
 
   useEffect(() => {
     const el = containerRef.current;
     if (!enabled || !el) return undefined;
-    const onScroll = () => {
+    let recheck: ReturnType<typeof setTimeout> | null = null;
+    const evaluate = () => {
       const s = state.current;
-      if (Date.now() < s.suppressUntil) return;
+      const now = Date.now();
+      if (now < s.suppressUntil) return;
+      const wait = Math.max(pinch.current.remaining(now), hold.current.remaining(now));
+      if (wait > 0) {
+        // Zoom / reflow noise is not saved, but the last point must not be lost either: look
+        // again once the window is over.
+        recheck ??= setTimeout(() => {
+          recheck = null;
+          evaluate();
+        }, wait + 30);
+        return;
+      }
       if (!s.gesture && !s.positioned) return; // still settling after the resume
       const at = locateInStrip(el.scrollTop, blocks());
       // Bottom of the strip on the last chapter = end of the book (the top-edge offset never gets there).
@@ -147,23 +209,58 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
         at.bp = BP_MAX;
       }
       topChapter.current = at.chapter;
+      s.anchor = { chapter: at.chapter, bp: at.bp };
       const report = s.gesture || encodeLocator(at.chapter, at.bp) >= s.floor;
       latest.current.onPosition(at.chapter, at.bp, report);
     };
     const onKey = (event: KeyboardEvent) => {
       if (SCROLL_KEYS.has(event.key)) markGesture();
     };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    el.addEventListener('wheel', markGesture, { passive: true });
-    el.addEventListener('touchmove', markGesture, { passive: true });
-    window.addEventListener('keydown', onKey);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      el.removeEventListener('wheel', markGesture);
-      el.removeEventListener('touchmove', markGesture);
-      window.removeEventListener('keydown', onKey);
+    // Viewport WIDTH changed (browser zoom, rotation): the chapters reflow, so keep the chapter
+    // and relative offset the reader was at. Height-only changes (Safari toolbars) and a resize
+    // right after the user's own scroll do nothing.
+    const onResize = () => {
+      if (hold.current.onResize(window.innerWidth, Date.now())) scrollToAnchor();
     };
-  }, [enabled, blocks, markGesture, count]);
+    const onLost = () => pinch.current.reset();
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') pinch.current.reset();
+    };
+    el.addEventListener('scroll', evaluate, { passive: true });
+    el.addEventListener('wheel', onWheel, { passive: true });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchCancel, { passive: true });
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('blur', onLost);
+    document.addEventListener('visibilitychange', onHidden);
+    return () => {
+      if (recheck !== null) clearTimeout(recheck);
+      el.removeEventListener('scroll', evaluate);
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchCancel);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('blur', onLost);
+      document.removeEventListener('visibilitychange', onHidden);
+    };
+  }, [
+    enabled,
+    blocks,
+    markGesture,
+    count,
+    onWheel,
+    onTouchStart,
+    onTouchEnd,
+    onTouchCancel,
+    onTouchMove,
+    scrollToAnchor,
+  ]);
 
   /** A chapter document reported its content height. */
   const onFrameHeight = useCallback(
@@ -171,7 +268,8 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
       if (!(height > 0)) return;
       const s = state.current;
       const known = heightsRef.current.get(index);
-      const previous = known ?? fallbackHeight();
+      const previous = known ?? fallback.current;
+      hold.current.extend(Date.now());
       if (index === s.target && !s.positioned) {
         s.positioned = true;
         s.rescroll = true;
@@ -229,8 +327,11 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
         cleanups.push(() => observer.disconnect());
       }
 
-      listen(doc, 'wheel', markGesture, true);
-      listen(doc, 'touchmove', markGesture, true);
+      listen(doc, 'wheel', onWheel, true);
+      listen(doc, 'touchstart', onTouchStart, true);
+      listen(doc, 'touchmove', onTouchMove, true);
+      listen(doc, 'touchend', onTouchEnd, true);
+      listen(doc, 'touchcancel', onTouchCancel, true);
       listen(doc, 'keydown', (event: KeyboardEvent) => {
         if (SCROLL_KEYS.has(event.key)) markGesture();
         latest.current.onKey(event);
@@ -251,6 +352,7 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
           return;
         }
         if (win.getSelection()?.toString()) return;
+        if (pinch.current.blocked(Date.now())) return; // end of a pinch is not a tap
         if (isCenterTap(event.clientX, win.innerWidth)) latest.current.onToggleControls();
       });
 
@@ -261,7 +363,7 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
       disposers.current.set(index, dispose);
       return { ok: true, dispose };
     },
-    [onFrameHeight, markGesture],
+    [onFrameHeight, markGesture, onWheel, onTouchStart, onTouchEnd, onTouchCancel, onTouchMove],
   );
 
   useEffect(
@@ -292,7 +394,7 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
   );
 
   const heightOf = useCallback(
-    (index: number) => heights.get(index) ?? fallbackHeight(),
+    (index: number) => heights.get(index) ?? fallback.current,
     [heights],
   );
 
