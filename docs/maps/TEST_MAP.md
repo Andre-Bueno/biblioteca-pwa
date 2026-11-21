@@ -2,7 +2,7 @@
 
 Estado: 2026-11-21. Funcionalidade → arquivos que existem no disco → lacunas.
 
-**Como as contagens foram obtidas:** backend = número de linhas `def test` por arquivo (grep no disco; parametrizados **não** expandidos). Frontend = linhas `it(`, `test(` ou `it.each(` por arquivo (grep; `it.each` conta como um bloco, não expandido). Infra e CI = `def test` em `infra/deploy-hook/` e `.github/scripts/`. Os resultados de execução (`scripts/check`, CI) são os informados pelo dono e pelo coordenador, não reexecutados aqui. Totais de contagem: backend 1120 funções em 95 arquivos; frontend 364 blocos em 28 arquivos (27 em `tests/unit`, 1 em `tests/regression`); infra e CI 59 funções em 2 arquivos.
+**Como as contagens foram obtidas:** backend = número de linhas `def test` por arquivo (grep no disco; parametrizados **não** expandidos). Frontend = linhas `it(`, `test(` ou `it.each(` por arquivo (grep; `it.each` conta como um bloco, não expandido). Infra e CI = `def test` em `infra/deploy-hook/` e `.github/scripts/`. Os resultados de execução (`scripts/check`, CI) são os informados pelo dono e pelo coordenador, não reexecutados aqui. Totais de contagem: backend 1122 funções em 95 arquivos; frontend 364 blocos em 28 arquivos (27 em `tests/unit`, 1 em `tests/regression`); infra e CI 59 funções em 2 arquivos.
 
 ## Backend: arquivo → funções → cobre
 
@@ -41,7 +41,7 @@ Estado: 2026-11-21. Funcionalidade → arquivos que existem no disco → lacunas
 | `backend/tests/integration/test_metadata_fusion.py` | 22 | Fusão de fontes, descrição pt-br primeiro, tradução marcada; caso real de obra sem pt-br no MangaDex |
 | `backend/tests/integration/test_book_progress_api.py` | 4 | Progresso de livro pela API |
 | `backend/tests/integration/test_book_preferences.py` | 8 | Preferências de livro: `book_font_scale` e `book_theme` |
-| `backend/tests/integration/test_book_series_enrichment.py` | 3 | Enriquecimento não consulta séries de livro |
+| `backend/tests/integration/test_book_series_enrichment.py` | 5 | Séries de livro enriquecidas como as demais (automática, por série, repositório, busca admin) e paridade CBZ, EPUB e pasta |
 | `backend/tests/integration/test_progress_api.py` | 14 | API de progresso e preferências: cálculo no servidor, 422/404 genéricos, `DELETE` idempotente, `continue`, UTC, preferências, navegação fora do rate limit estrito |
 | `backend/tests/integration/test_progress_repository.py` | 5 | Upsert e `get`, upserts concorrentes, cascata, `list_continue` por usuário, preferências só nas colunas dele |
 | `backend/tests/integration/test_migrations.py` | 18 | Sobe e desce; ORM × schema; índices; pragmas; unicidade; checks; reversibilidade; `reading_progress`; colunas de livro (`0008`) |
@@ -101,7 +101,7 @@ Estado: 2026-11-21. Funcionalidade → arquivos que existem no disco → lacunas
 | `backend/tests/regression/test_reg_023_translation_missing_space_after_sentence.py` | 4 | REG-023: espaço faltando após ponto final na tradução do MyMemory (sem finding) |
 | `backend/tests/regression/test_reg_024_book_locator_is_read_by_item_type.py` | 3 | REG-024: o locator é lido conforme o tipo do item (sem finding) |
 | `backend/tests/regression/test_reg_025_preferences_put_keeps_book_settings.py` | 1 | REG-025: `PUT` de preferências preserva os campos de livro (sem finding) |
-| `backend/tests/regression/test_reg_026_enrichment_skips_series_of_books.py` | 1 | REG-026: enriquecimento pula séries de livro (sem finding) |
+| `backend/tests/regression/test_reg_026_enrichment_does_not_depend_on_format.py` | 1 | REG-026: série de EPUB é consultada e recebe capa e descrição (sem finding; decisão do dono, 2026-11-21) |
 | `backend/tests/regression/test_reg_027_series_chapters_expose_type_and_kind.py` | 1 | REG-027: capítulos trazem `type` e a série traz `kind` (sem finding) |
 
 Helpers (não são teste, fora da contagem): `backend/tests/conftest.py` (ambiente hermético, `SECRET_KEY` de teste), `fakes.py`, `auth_fakes.py`, `library_env.py` (`library_env`, `logged_in`, `add_item`, `metadata_env`), `metadata_fakes.py` (`FakeGateway` com a allowlist real, respostas canônicas, `fake_translation`), `epub_fixtures.py` (construtores de EPUB), `update_fakes.py` (falsos de atualização), `regression/README.md`, `unit/.gitkeep`.

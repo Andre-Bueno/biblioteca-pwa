@@ -158,7 +158,7 @@ Não há cancelamento de scan (pendência registrada em `SECURITY_MAP.md`).
 | Passo | Onde |
 |---|---|
 | 1. Disparo: `POST /api/v1/library/enrich` (admin, 202, em segundo plano) ou `python -m app.cli enrich` (síncrono) | `api/library.py`, `cli.py`, `services/enrich_runner.py` |
-| 2. Uma execução por vez; até `METADATA_MAX_PER_RUN` séries; elegibilidade pelo estado (`manual` nunca; séries de livro não entram) | `services/metadata_service.py` (`enrich_all`, `_eligible`) |
+| 2. Uma execução por vez; até `METADATA_MAX_PER_RUN` séries; elegibilidade pelo estado (`manual` nunca; formato não importa) | `services/metadata_service.py` (`enrich_all`, `_eligible`) |
 | 3. Busca em MangaDex e AniList (obra); Wikipédia e Google Livros só com casamento forte | `adapters/metadata/*.py`, `domain/metadata.py` (`pick_best`) |
 | 4. Fusão: capa e fonte pela primeira obra com capa; descrição pt-br > fonte só-descrição > tradução > original | `services/metadata_service.py` (`_apply_work`, `_resolve_description`) |
 | 5. Toda saída de conteúdo passa pelo `SafeGateway` (lista fixa de 8 hosts) | `adapters/http/safe_gateway.py` |

@@ -55,3 +55,11 @@
   - A exceção vale só para metadados; outra integração externa exige nova autorização do dono.
 
 Complementa ADR 0002 e ADR 0016. Não altera ADR 0001 a 0013.
+
+## Emenda 2026-11-21
+
+- **Decisão do dono (2026-11-21, "Sim, igualar"):** a consulta de capa e descrição passa a valer para todos os formatos (EPUB, CBZ, CBR, pasta e PDF), não só para mangá. Séries só de livro deixam de ser puladas.
+- **Não muda:** mesmas fontes (lista fixa, sem host novo), mesmos limiares e margens, mesmo `SafeGateway`, mesmo envio (só título limpo e sinopse pública).
+- **Efeito:** o casamento por título passa a valer também para livros. Risco de falso positivo em livros com título comum; mitigado pelo estado `manual` (nunca sobrescrito) e pelos limiares (sem casamento seguro: `not_found`).
+- **Substituído em:** a regra "séries de livro não entram no enriquecimento" (REG-026 original) foi revogada; o teste REG-026 passa a afirmar o contrário.
+- Texto acima da seção "Decisão" permanece como foi aceito.

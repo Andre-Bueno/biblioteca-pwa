@@ -4,6 +4,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+## [0.1.5] - 2026-11-21
+
+### Changed
+- Backend: EPUB e demais formatos passam a receber capa e descrição de fontes públicas como CBZ (mesmas fontes e limiares, ADR 0015, emenda de 2026-11-21). REG-026 invertido por decisão do dono (`test_reg_026_enrichment_does_not_depend_on_format.py`).
+
+### Fixed
+- Backend: busca manual e automática de metadados seguem a mesma regra para todos os formatos (`services/metadata_service.py`, `adapters/persistence/series_repository.py`; `test_book_series_enrichment.py`).
+
 ## [0.1.4] - 2026-11-21
 
 ### Fixed

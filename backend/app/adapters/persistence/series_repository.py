@@ -191,15 +191,10 @@ class SqlAlchemySeriesRepository:
     def list_for_enrichment(
         self, states: Sequence[str], not_found_before: datetime | None, limit: int
     ) -> list[Series]:
-        # A series made only of books is never looked up (external sources know manga, not the
-        # user's books): it needs at least one active non-book item.
+        # Any format counts (no rule by item type): the series needs at least one active item.
         has_active = (
             select(ItemRow.id)
-            .where(
-                ItemRow.series_id == SeriesRow.id,
-                ItemRow.missing.is_(False),
-                ItemRow.type != "book",
-            )
+            .where(ItemRow.series_id == SeriesRow.id, ItemRow.missing.is_(False))
             .exists()
         )
         stmt = select(SeriesRow).where(SeriesRow.metadata_state.in_(list(states)), has_active)

@@ -43,8 +43,8 @@ class SeriesRepository(Protocol):
     ) -> list[Series]:
         """Visible series whose state is in `states`, never checked first, at most `limit`.
         A `not_found` series is returned only when never checked or checked before
-        `not_found_before` (None = no age filter). Series whose active items are all books are
-        never returned."""
+        `not_found_before` (None = no age filter). The item format never matters; a series needs at
+        least one active item."""
         ...
 
     def update_metadata(

@@ -110,7 +110,7 @@ Arquivo → responsabilidade → camada. Estado: 2026-11-21. Conferido contra o 
 | `backend/app/services/progress_service.py` | `ProgressService`: `save` (valida locator contra o item, deriva `percent`/`finished` pelo tipo, carimba com o relógio do servidor, upsert), `get`, `clear` (idempotente), `continue_reading` (limite capado em 50) | services |
 | `backend/app/services/preferences_service.py` | `PreferencesService`: `get` e `update` (`UserNotFoundError` se o usuário não existe); grava também os campos de livro | services |
 | `backend/app/services/series_service.py` | `SeriesService`: `list_series` (limite capado em 100), `get_series` (capítulos com `type`, progresso do usuário, `continue`, `kind`); `get_series_cover` (capa baixada ou do primeiro capítulo legível, até 5 tentativas) | services |
-| `backend/app/services/metadata_service.py` | `MetadataService`: `enrich_all` (uma execução, até `METADATA_MAX_PER_RUN`; pula séries de livro), elegibilidade por estado, fusão de fontes (`_apply_work`, `_resolve_description`), `candidates`, `select`, `set_manual`, `clear`; capa com escrita condicional ao estado atual; falha de fonte não derruba a execução | services |
+| `backend/app/services/metadata_service.py` | `MetadataService`: `enrich_all` (uma execução, até `METADATA_MAX_PER_RUN`), elegibilidade por estado, fusão de fontes (`_apply_work`, `_resolve_description`), `candidates`, `select`, `set_manual`, `clear`; capa com escrita condicional ao estado atual; falha de fonte não derruba a execução | services |
 | `backend/app/services/enrich_runner.py` | `EnrichRunner`: uma execução por vez (thread em segundo plano na API; síncrona no CLI); estado `idle`, `running`, `finished`, `failed` com contagens | services |
 | `backend/app/services/book.py` | Casos de uso de livro: `get_book`, `get_chapter` (opções validadas antes de abrir o arquivo), `get_resource`; usa os leitores de livro registrados | services |
 | `backend/app/services/update_service.py` | `UpdateService`: consulta preguiçosa da última release (ETag, cache de `UPDATE_CHECK_INTERVAL_HOURS`, single-flight, pausa após falha ou limitação); `request_update` (tag igual à última release e mais nova; webhook; auditoria `system.update_requested` e `system.update_failed`); estado do pedido só em memória | services |
@@ -235,7 +235,7 @@ Arquivo → responsabilidade → camada. Estado: 2026-11-21. Conferido contra o 
 | `backend/tests/integration/test_metadata_fusion.py` | Fusão de fontes, descrição pt-br primeiro, tradução marcada; caso real de obra sem pt-br no MangaDex | teste |
 | `backend/tests/integration/test_book_progress_api.py` | Progresso de livro pela API | teste |
 | `backend/tests/integration/test_book_preferences.py` | Preferências de livro: `book_font_scale` e `book_theme` | teste |
-| `backend/tests/integration/test_book_series_enrichment.py` | Enriquecimento não consulta séries de livro | teste |
+| `backend/tests/integration/test_book_series_enrichment.py` | Séries de livro são enriquecidas como as demais; paridade CBZ, EPUB e pasta | teste |
 | `backend/tests/security/test_security_headers.py` | Cabeçalhos (inclui 404), 500 genérico, reraise após início, `CancelledError`, desconexão, substituição de cabeçalhos da rota | teste |
 | `backend/tests/security/test_settings.py` | `SECRET_KEY` (ausente, curta, baixa entropia, espaços); limites; coerência do lockout; fórmula; metadados (`METADATA_*`, `DATA_DIR`) | teste |
 | `backend/tests/security/test_password_storage.py` | Senha só como Argon2id; fora de logs, erros e auditoria | teste |
@@ -289,7 +289,7 @@ Arquivo → responsabilidade → camada. Estado: 2026-11-21. Conferido contra o 
 | `backend/tests/regression/test_reg_023_translation_missing_space_after_sentence.py` | REG-023: espaço faltando após ponto final na tradução do MyMemory | teste |
 | `backend/tests/regression/test_reg_024_book_locator_is_read_by_item_type.py` | REG-024: o locator é lido conforme o tipo do item (livro ≠ página) | teste |
 | `backend/tests/regression/test_reg_025_preferences_put_keeps_book_settings.py` | REG-025: `PUT` de preferências preserva os campos de livro | teste |
-| `backend/tests/regression/test_reg_026_enrichment_skips_series_of_books.py` | REG-026: enriquecimento pula séries de livro | teste |
+| `backend/tests/regression/test_reg_026_enrichment_does_not_depend_on_format.py` | REG-026: série de EPUB é consultada e recebe capa e descrição (decisão do dono, 2026-11-21) | teste |
 | `backend/tests/regression/test_reg_027_series_chapters_expose_type_and_kind.py` | REG-027: capítulos trazem `type` e a série traz `kind` | teste |
 
 Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota de arquivo com `Range` para PDF (`/items/{id}/file`), leitor PDF, `backend/tests/fixtures/` (o `check` de segredos já a exclui se existir).

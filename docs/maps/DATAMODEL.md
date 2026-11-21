@@ -92,7 +92,7 @@ Eventos de `audit_log` hoje: `user.created`, `user.password_reset`, `user.deacti
 | Ordem de capítulo | `chapter_number` primeiro (sem número, no fim), depois ordem natural do nome, depois id | implementado (ADR 0014) |
 | Kind e tipo | Capítulo traz `type` (manga, book, pdf); série traz `kind` (manga, book, mixed), derivado e não armazenado | implementado (REG-027) |
 | Metadado manual | `metadata_state = manual` nunca é sobrescrito por enriquecimento automático; a escrita confere o estado atual | implementado (REG-021) |
-| Enriquecimento e livros | Séries de livro não entram no enriquecimento automático | implementado (REG-026) |
+| Enriquecimento e formato | Sem regra por formato: série de livro é consultada como as demais | implementado (REG-026, emenda ao ADR 0015) |
 | Estados de metadado | none → matched (fonte) ou not_found (sem casamento seguro; reavaliado após 7 dias); manual (admin) | implementado (ADR 0015) |
 | Atribuição | `description_origin` e `description_source_*` dizem de quem é o texto; tradução marcada como `translated` | implementado (ADR 0015) |
 | Visibilidade de série | Série só aparece com pelo menos um capítulo ativo (`missing = false`); item ausente sai da série e mantém `series_id` | implementado |
