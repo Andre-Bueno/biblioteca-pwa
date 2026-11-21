@@ -7,6 +7,7 @@ import { useEpubData } from '../hooks/useEpubData';
 import { useEpubReader } from '../hooks/useEpubReader';
 import { EpubControls } from './EpubControls';
 import { EpubEnd } from './EpubEnd';
+import { EpubStrip } from './EpubStrip';
 import { SettingsDrawer } from './SettingsDrawer';
 import { TocDrawer } from './TocDrawer';
 import '../epub.css';
@@ -29,17 +30,21 @@ function Reader({
         sandbox has no allow-scripts / allow-popups / allow-forms / allow-top-navigation.
         allow-same-origin is what lets the app read the scroll position and clicks.
       */}
-      <iframe
-        key={reader.frameKey}
-        ref={frameRef}
-        className="epub-frame"
-        title={`Livro ${book.title || item.title}, capítulo ${reader.chapter + 1} de ${reader.count}`}
-        src={reader.src}
-        sandbox="allow-same-origin"
-        referrerPolicy="no-referrer"
-        onLoad={reader.onFrameLoad}
-        data-testid="epub-frame"
-      />
+      {reader.vertical ? (
+        <EpubStrip reader={reader} />
+      ) : (
+        <iframe
+          key={reader.frameKey}
+          ref={frameRef}
+          className="epub-frame"
+          title={`Livro ${book.title || item.title}, capítulo ${reader.chapter + 1} de ${reader.count}`}
+          src={reader.src}
+          sandbox="allow-same-origin"
+          referrerPolicy="no-referrer"
+          onLoad={reader.onFrameLoad}
+          data-testid="epub-frame"
+        />
+      )}
       {reader.loading && (
         <div className="epub-loading" role="status" data-testid="chapter-loading">
           <div className="spinner" />
@@ -98,7 +103,9 @@ interface EpubReaderPageProps {
 /** Route screen for a book (`/ler/:itemId` when the item type is `book`). */
 export function EpubReaderPage({ itemState, retryItem }: EpubReaderPageProps) {
   const { data, retry } = useEpubData(itemState, retryItem);
-  const { loaded } = usePreferences(); // the first src already uses the saved theme and size
+  // The first src already uses the saved theme and size; the reading direction picks the mode.
+  const { loaded, preferences } = usePreferences();
+  const vertical = preferences.reading_direction === 'vertical';
 
   if (data.status === 'loading' || !loaded) {
     return (
@@ -121,6 +128,11 @@ export function EpubReaderPage({ itemState, retryItem }: EpubReaderPageProps) {
   if (data.book.chapters.length === 0)
     return <Message>Este livro não tem capítulos para ler.</Message>;
   return (
-    <Reader key={data.item.id} item={data.item} book={data.book} savedLocator={data.savedLocator} />
+    <Reader
+      key={`${data.item.id}:${vertical ? 'v' : 'p'}`}
+      item={data.item}
+      book={data.book}
+      savedLocator={data.savedLocator}
+    />
   );
 }

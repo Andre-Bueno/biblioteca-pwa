@@ -14,6 +14,49 @@
   background: var(--color-bg);
 }
 
+/* Continuous vertical reading: one iframe per chapter, sized to its content. */
+.epub-strip {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  overflow-anchor: none; /* heights are compensated by hand (useEpubStrip) */
+  background: var(--color-bg);
+}
+
+.epub-strip__chapter {
+  position: relative;
+  overflow-anchor: none;
+  overflow: hidden;
+}
+
+.epub-strip__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--color-bg);
+}
+
+.epub-strip__note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.epub-strip__note .btn {
+  pointer-events: auto;
+}
+
 .epub-loading,
 .epub-failed {
   position: absolute;

@@ -183,12 +183,17 @@ describe('EPUB reader source guards', () => {
 
   it('every sandbox attribute is exactly allow-same-origin', () => {
     const found: string[] = [];
+    let iframes = 0;
     for (const file of files) {
       const text = readFileSync(file, 'utf8');
+      iframes += (text.match(/<iframe\b/g) ?? []).length;
       for (const match of text.matchAll(/sandbox=(?:"([^"]*)"|\{([^}]*)\})/g)) {
         found.push(match[1] ?? match[2] ?? '');
       }
     }
-    expect(found).toEqual(['allow-same-origin']);
+    // Two iframes: the single chapter (EpubReaderPage) and each strip chapter (EpubStrip).
+    expect(found).toEqual(['allow-same-origin', 'allow-same-origin']);
+    // No iframe may exist without its own sandbox attribute.
+    expect(iframes).toBe(found.length);
   });
 });

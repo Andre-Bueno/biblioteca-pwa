@@ -368,6 +368,9 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/src/features/reader-epub/hooks/useEpubData.ts` | Carrega item, estrutura do livro e progresso | features |
 | `frontend/src/features/reader-epub/hooks/useEpubFrame.ts` | Frame do capítulo: restaura posição, lê rolagem e cliques em `a[href]` | features |
 | `frontend/src/features/reader-epub/hooks/useEpubReader.ts` | Estado do leitor: capítulo, painéis, preferências do livro e salvamento de progresso | features |
+| `frontend/src/features/reader-epub/hooks/useEpubStrip.ts` | Leitura vertical contínua: janela de iframes, posição, progresso e rolagem (modo "Vertical") | features |
+| `frontend/src/features/reader-epub/components/EpubStrip.tsx` | Tira vertical do livro: um iframe por capítulo, reserva de altura nos não montados | features |
+| `frontend/src/features/reader-epub/strip.ts` | Lógica pura da tira vertical: janela (1 antes, 3 depois), posição e altura do capítulo | features |
 | `frontend/src/features/reader-pdf/README.md` | Esqueleto (Fase 4). Não importar outras features | docs |
 | `frontend/src/features/progress/README.md` | Reservada: o código de progresso fica em `shared/progress` | docs |
 | `frontend/src/features/settings/index.ts` | Exporta `SettingsPage` | features |
@@ -469,7 +472,9 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/tests/unit/reader-series.test.tsx` | Leitor com série: próximo e anterior no fim do capítulo, "voltar" para a série | teste |
 | `frontend/tests/unit/reader-vertical.test.tsx` | Modo vertical: não regride o progresso salvo ao retomar; janela de páginas montadas; memória limitada do pré-carregamento; região viva e teclado | teste |
 | `frontend/tests/unit/reader-epub.test.tsx` | Leitor EPUB: capítulos, progresso, painéis e preferências do livro | teste |
-| `frontend/tests/unit/epub-locator.test.ts` | Locator de livro (`capítulo * 10000 + offset_bp`) e lógica pura do leitor EPUB | teste |
+| `frontend/tests/unit/epub-locator.test.ts` | Locator de livro (`capítulo * 10000 + offset_bp`) e lógica pura do leitor EPUB; guarda de sandbox dos dois iframes (página e tira vertical) | teste |
+| `frontend/tests/unit/epub-strip.test.ts` | Lógica pura da tira vertical: janela, posição, altura e progresso | teste |
+| `frontend/tests/unit/reader-epub-vertical.test.tsx` | Leitor EPUB em modo vertical: tira, janela de capítulos, progresso e fim do livro | teste |
 | `frontend/tests/unit/progress-saver.test.ts` | Debounce, um envio por vez, retry, `flush` com `keepalive`, `dispose` | teste |
 | `frontend/tests/unit/preferences.test.tsx` | Não sobrescreve o servidor com padrões; edição enquanto o GET está pendente é mesclada; PUTs em série | teste |
 | `frontend/tests/unit/session-images.test.tsx` | Verificação de sessão na carga (só 401 = saiu); recuperação de imagem compartilhada, sem `/auth/me`, uma tentativa por janela | teste |

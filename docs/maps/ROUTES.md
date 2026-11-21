@@ -17,7 +17,7 @@ Grupo protegido: `RequireAuth` (`features/auth/components/RequireAuth.tsx`) envo
 
 Links e texto nas telas de série e de versão: links externos só https (`safeHttpsUrl`); descrição, notas de release e títulos de origem externa são texto puro. Capas usam URL same-origin (`/api/v1/series/{id}/cover`).
 
-Leitor EPUB: o capítulo vive num `<iframe sandbox="allow-same-origin">` (sem `allow-scripts`), servido por `/api/v1/items/{id}/book/chapters/{n}` (ADR 0017). O app lê só geometria de rolagem e `a[href]` do frame.
+Leitor EPUB: o capítulo vive num `<iframe sandbox="allow-same-origin">` (sem `allow-scripts`), servido por `/api/v1/items/{id}/book/chapters/{n}` (ADR 0017). O app lê só geometria de rolagem e `a[href]` do frame. Com preferência "Vertical" (`/ler/:itemId`), a mesma rota mostra uma tira contínua: um iframe por capítulo, janela de 1 antes e 3 depois montada.
 
 ## Estados do RequireAuth
 

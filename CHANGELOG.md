@@ -4,6 +4,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+## [0.1.2] - 2026-11-21
+
+### Added
+- Frontend: leitura vertical contínua de livros EPUB (preferência "Vertical"): capítulos empilhados em iframes `sandbox="allow-same-origin"`, com janela de 1 antes e 3 depois montada e progresso `capítulo * 10000 + offset_bp` (`features/reader-epub/strip.ts`, `hooks/useEpubStrip.ts`, `components/EpubStrip.tsx`).
+
 ## [0.1.1] - 2026-11-21
 
 ### Changed

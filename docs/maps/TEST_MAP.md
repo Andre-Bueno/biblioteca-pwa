@@ -2,7 +2,7 @@
 
 Estado: 2026-11-21. Funcionalidade → arquivos que existem no disco → lacunas.
 
-**Como as contagens foram obtidas:** backend = número de linhas `def test` por arquivo (grep no disco; parametrizados **não** expandidos). Frontend = linhas `it(`, `test(` ou `it.each(` por arquivo (grep; `it.each` conta como um bloco, não expandido). Infra e CI = `def test` em `infra/deploy-hook/` e `.github/scripts/`. Os resultados de execução (`scripts/check`, CI) são os informados pelo dono e pelo coordenador, não reexecutados aqui. Totais de contagem: backend 1120 funções em 95 arquivos; frontend 315 blocos em 23 arquivos; infra e CI 59 funções em 2 arquivos.
+**Como as contagens foram obtidas:** backend = número de linhas `def test` por arquivo (grep no disco; parametrizados **não** expandidos). Frontend = linhas `it(`, `test(` ou `it.each(` por arquivo (grep; `it.each` conta como um bloco, não expandido). Infra e CI = `def test` em `infra/deploy-hook/` e `.github/scripts/`. Os resultados de execução (`scripts/check`, CI) são os informados pelo dono e pelo coordenador, não reexecutados aqui. Totais de contagem: backend 1120 funções em 95 arquivos; frontend 330 blocos em 25 arquivos (315 + 15 das suítes novas da tira vertical); infra e CI 59 funções em 2 arquivos.
 
 ## Backend: arquivo → funções → cobre
 
@@ -145,7 +145,9 @@ Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-0
 | `frontend/tests/unit/reader-vertical.test.tsx` | 11 | Modo vertical sem regredir o progresso salvo; janela de páginas; memória limitada; região viva e teclado |
 | `frontend/tests/unit/reader-navigation.test.ts` | 10 | Lógica pura: zonas de toque, deslize, teclas, `clampPage` |
 | `frontend/tests/unit/reader-epub.test.tsx` | 49 | Leitor EPUB: capítulos, progresso, painéis e preferências do livro |
-| `frontend/tests/unit/epub-locator.test.ts` | 17 | Locator de livro (`capítulo * 10000 + offset_bp`) e lógica pura do leitor EPUB |
+| `frontend/tests/unit/epub-locator.test.ts` | 17 | Locator de livro (`capítulo * 10000 + offset_bp`), lógica pura do leitor EPUB e sandbox de todos os iframes do leitor (página e tira) |
+| `frontend/tests/unit/epub-strip.test.ts` | 7 | Tira vertical do EPUB: janela de capítulos, posição, altura e conversão de posição |
+| `frontend/tests/unit/reader-epub-vertical.test.tsx` | 8 | Leitor EPUB em modo vertical: tira, janela montada, progresso e fim do livro |
 | `frontend/tests/unit/progress-saver.test.ts` | 8 | Debounce, um envio por vez, retry, `flush` com `keepalive`, `dispose` |
 | `frontend/tests/unit/preferences.test.tsx` | 3 | Não sobrescreve o servidor com padrões; edição com GET pendente é mesclada; PUTs em série |
 | `frontend/tests/unit/session-images.test.tsx` | 7 | Verificação de sessão na carga (só 401 = saiu); recuperação de imagem compartilhada, sem `/auth/me` |

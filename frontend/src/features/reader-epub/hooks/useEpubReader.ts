@@ -13,6 +13,7 @@ import {
   stepFontScale,
 } from '../locator';
 import { useEpubFrame } from './useEpubFrame';
+import { useEpubStrip, type StripJump } from './useEpubStrip';
 
 interface Params {
   frameRef: RefObject<HTMLIFrameElement | null>;
@@ -43,12 +44,21 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
   const [bp, setBp] = useState(initial.bp);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState<Panel>('none');
-  const [loading, setLoading] = useState(true);
+  // "Vertical" reading direction = continuous scroll through the chapters (same preference as the
+  // manga strip). The page remounts the reader when it changes.
+  const vertical = preferences.reading_direction === 'vertical';
+  const [loading, setLoading] = useState(!vertical); // the strip loads per chapter
   const [loadFailedFrame, setLoadFailedFrame] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [sliderValue, setSliderValue] = useState<number | null>(null);
+  const [jump, setJump] = useState<StripJump>(() => ({
+    chapter: initial.chapter,
+    bp: initial.bp,
+    nonce: 0,
+  }));
 
   const positionRef = useRef(initial.bp);
+  const shownRef = useRef({ chapter: initial.chapter, bp: initial.bp });
   const anchorRef = useRef<string | null>(null);
   const scrollApi = useRef<{ by: (f: number) => void; edge: (e: 'top' | 'bottom') => void } | null>(
     null,
@@ -70,6 +80,16 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
       const next = clampChapter(target, count);
       setPanel('none');
       setSliderValue(null);
+      if (vertical) {
+        // Continuous mode: scroll the strip to the chapter (anchors are not used here).
+        positionRef.current = 0;
+        shownRef.current = { chapter: next, bp: 0 };
+        setBp(0);
+        setChapter(next);
+        setJump((value) => ({ chapter: next, bp: 0, nonce: value.nonce + 1 }));
+        report(encodeLocator(next, 0));
+        return;
+      }
       if (next === chapter && !anchor) {
         scrollApi.current?.edge('top');
         return;
@@ -83,7 +103,7 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
       setChapter(next);
       report(encodeLocator(next, 0)); // the user moved: save the new position
     },
-    [count, chapter, report],
+    [count, chapter, report, vertical],
   );
 
   const step = useCallback(
@@ -149,7 +169,35 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
     },
   });
 
-  const { scrollBy, scrollToEdge } = frame;
+  const strip = useEpubStrip({
+    enabled: vertical,
+    chapter,
+    count,
+    initial,
+    jump,
+    callbacks: {
+      onPosition: (stripChapter, value, shouldReport) => {
+        // Re-render only on a real change (chapter, >= 1%, or crossing the "end" threshold).
+        const last = shownRef.current;
+        if (
+          stripChapter !== last.chapter ||
+          Math.abs(value - last.bp) >= 100 ||
+          value >= END_BP !== last.bp >= END_BP
+        ) {
+          shownRef.current = { chapter: stripChapter, bp: value };
+          setChapter(stripChapter);
+          setBp(value);
+        }
+        if (shouldReport) report(encodeLocator(stripChapter, value));
+      },
+      onGoto: goToChapter,
+      onToggleControls: toggleControls,
+      onKey: handleKey,
+    },
+  });
+
+  const scrollBy = vertical ? strip.scrollBy : frame.scrollBy;
+  const scrollToEdge = vertical ? strip.scrollToEdge : frame.scrollToEdge;
   useEffect(() => {
     scrollApi.current = { by: scrollBy, edge: scrollToEdge };
   }, [scrollBy, scrollToEdge]);
@@ -173,19 +221,19 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
     (direction: 1 | -1) => {
       const next = stepFontScale(fontScale, direction);
       if (next === fontScale) return;
-      setLoading(true); // the src changes: the same position is restored after the reload
+      if (!vertical) setLoading(true); // the src changes: the same position is restored after
       void update({ book_font_scale: next });
     },
-    [fontScale, update],
+    [fontScale, update, vertical],
   );
 
   const setBookTheme = useCallback(
     (next: BookTheme) => {
       if (next === theme) return;
-      setLoading(true);
+      if (!vertical) setLoading(true);
       void update({ book_theme: next });
     },
-    [theme, update],
+    [theme, update, vertical],
   );
 
   const retry = useCallback(() => {
@@ -202,8 +250,16 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
     chapter,
     chapterTitle: book.chapters.find((entry) => entry.index === chapter)?.title ?? '',
     percent: bookPercent(chapter, bp, count),
-    atEnd: bp >= Math.min(END_BP, BP_MAX) && !loading && !loadFailedFrame,
+    // Continuous mode scrolls into the next chapter by itself: only the end of the book shows.
+    atEnd:
+      bp >= Math.min(END_BP, BP_MAX) &&
+      !loading &&
+      !loadFailedFrame &&
+      (!vertical || chapter >= count - 1),
     isLastChapter: chapter >= count - 1,
+    vertical,
+    strip,
+    chapterUrl: (index: number) => bookChapterUrl(item.id, index, theme, fontScale),
     src,
     frameKey: `${chapter}:${reloadNonce}`,
     loading,
