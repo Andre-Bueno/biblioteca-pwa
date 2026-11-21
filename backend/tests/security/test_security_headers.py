@@ -11,7 +11,8 @@ from starlette.responses import Response
 from starlette.types import Message, Receive, Scope, Send
 
 EXPECTED_CSP = (
-    "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; "
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
+    "connect-src 'self'; worker-src 'self'; manifest-src 'self'; font-src 'self'; "
     "object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 )
 

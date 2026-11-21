@@ -1,66 +1,229 @@
 # SECURITY_MAP
 
-Estado: 2026-11-19. Fonte de requisitos: `docs/PLANO.md` §6. Decisões: ADR 0002 (segurança no app), ADR 0005 (padrões fechados) e ADR 0006 (cabeçalhos do middleware sobrepõem a rota). Convenção de testes de regressão: `TEST_MAP.md`.
+Estado: 2026-11-21. Fonte de requisitos: `docs/PLANO.md` §6. Decisões: ADR 0002 (segurança no app), ADR 0005 (padrões fechados), ADR 0006 (cabeçalhos sobrepõem a rota), ADR 0007 (usuários, SQLite, Argon2id), ADR 0008 (sessão e CSRF), ADR 0009 (lockout), ADR 0010 (exceção de cache de imagem), ADR 0011 (proxy e IP real), ADR 0012 (backend serve o frontend; resolve M5), ADR 0013 (progresso e preferências no servidor), ADR 0014 (séries por pasta), ADR 0015 (metadados de fontes públicas; exceção autorizada à regra 7 em 2026-11-20), ADR 0016 (capas). Auditoria: `docs/security/` (12 findings; 11 `fixed`, 1 `open`; nenhum `verified`; estado em `REMEDIATION_QUEUE.md`). Testes por arquivo: `TEST_MAP.md`.
 
 ## Implementado
 
-| Superfície / ameaça | Controle | Onde | Teste | Status |
-|---|---|---|---|---|
-| Clickjacking, sniffing, vazamento de referrer, APIs do navegador | Middleware de cabeçalhos: CSP sem `unsafe-inline`, nosniff, Referrer-Policy, Permissions-Policy | `backend/app/api/security_headers.py` | `backend/tests/security/test_security_headers.py` (CSP exata fixada) | Implementado |
-| Cabeçalho de segurança relaxado pela rota | Middleware sempre sobrepõe cabeçalhos de mesmo nome da rota (ADR 0006) | `backend/app/api/security_headers.py` | `test_security_headers.py` (`test_preexisting_security_headers_are_replaced`) | Implementado; revisitar no leitor EPUB/PDF |
-| Erro interno vazar detalhe ou sem cabeçalhos | Exceção não tratada vira 500 JSON genérico com cabeçalhos de segurança e `Cache-Control: no-store` | `backend/app/api/security_headers.py` | `test_security_headers.py` (`test_unhandled_exception_returns_generic_500_with_headers`) | Implementado |
-| Erro após resposta iniciada | Erro real: log e reraise; desconexão do cliente: só debug; `CancelledError` propaga | `backend/app/api/security_headers.py` | `test_security_headers.py` (`test_real_error_after_start_is_logged_and_reraised`, `test_disconnect_after_start_is_reraised_without_error_log`, `test_cancelled_error_is_not_swallowed`) | Implementado |
-| Segredo fraco ou ausente | `SECRET_KEY` obrigatória: ≥32 caracteres, ≥12 distintos, sem espaços nas pontas, sem bloco de ≤8 repetido; `create_app()` falha sem ela | `backend/app/core/config.py`, `backend/app/main.py` | `backend/tests/security/test_settings.py` | Implementado |
-| `SECRET_KEY` no log de erro de validação (M-1) | `hide_input_in_errors=True`: o valor não aparece em `str`/`repr` do `ValidationError` | `backend/app/core/config.py` | `backend/tests/regression/test_reg_001_secret_key_not_in_error.py` (REG-001) | Corrigido |
-| Exposição de rede da porta do app | Compose publica em `${BIND_ADDRESS:-127.0.0.1}` (loopback por padrão) | `infra/compose.example.yml`, `.env.example` | inspeção (sem teste) | Implementado (infra) |
-| Confiança em cabeçalho de proxy (IP real) | Única fonte: uvicorn `--proxy-headers --forwarded-allow-ips $FORWARDED_ALLOW_IPS`. Compose e `.env.example`: `172.17.0.1`. `TRUSTED_PROXY_COUNT` removido | `infra/compose.example.yml`, `.env.example`, `infra/Dockerfile` | inspeção (sem teste) | Implementado no compose; Dockerfile em aberto (ver Pendências) |
-| Segredo no contexto/imagem de build | `.dockerignore` exclui `.env*` (exceto `.env.example`), docs, testes, bancos | `.dockerignore` | inspeção (sem teste) | Implementado |
-| Token em localStorage/sessionStorage (XSS) | ESLint bloqueia `localStorage` e `sessionStorage`, inclusive via `window`/`globalThis`/`self` | `frontend/eslint.config.js` | `frontend/tests/unit/eslint-rules.test.ts`; `theme.test.tsx` (tema não grava) | Implementado; indiretos dependem de revisão |
-| Fetch disperso (CSRF/erros) | ESLint: `fetch` cru (inclusive `window.fetch` etc.) só em `shared/api-client` | `frontend/eslint.config.js` | `eslint-rules.test.ts` | Implementado; indiretos dependem de revisão |
-| Rede por canal alternativo | ESLint: `XMLHttpRequest`, `WebSocket`, `navigator.sendBeacon` só em `shared/api-client`; `indexedDB` só em `shared/offline` | `frontend/eslint.config.js` | `eslint-rules.test.ts` | Implementado; indiretos (alias, desestruturação, `window.navigator.sendBeacon`) não detectados |
-| HTML injetado (XSS) | ESLint `react/no-danger`, `no-eval`, `no-implied-eval`, plugin `security` | `frontend/eslint.config.js` | lint (`scripts/check`) | Implementado |
-| CSRF (cliente) | Envia cabeçalho em POST/PUT/PATCH/DELETE; `credentials` same-origin, `include` só com origem externa configurada | `frontend/src/shared/api-client/client.ts`, `csrf.ts` | `frontend/tests/unit/api-client.test.ts` | Implementado (cliente) |
-| Enumeração e detalhe de erro (429, 500, não-JSON) | Mensagem genérica; `Retry-After` lido; corpo não-JSON vira `ApiError`; `AbortError` propagado | `frontend/src/shared/api-client/errors.ts`, `client.ts` | `api-client.test.ts` | Implementado (cliente) |
-| Cache de dados autenticados no SW | `runtimeCaching: []`; precache só do shell; `/api` fora do fallback | `frontend/vite.config.ts` | inspeção | Implementado |
-| Verificação com falso OK | `check` falha sem rede por padrão; etapas puladas/parciais são declaradas | `scripts/check.ps1`, `scripts/check.sh` | não há teste automatizado | Implementado; `check.sh` só testado com bash do Git no Windows |
-| Acoplamento entre camadas | Teste executa import-linter; violação quebra o teste | `backend/tests/architecture/test_layers.py` | `test_layers.py` (33 casos) | Implementado |
-
-## Planejado (PLANO §6)
+### Sessão e autenticação
 
 | Superfície / ameaça | Controle | Onde | Teste | Status |
 |---|---|---|---|---|
-| Brute force no login | Limite por conta e IP, atraso, bloqueio, resposta e tempo idênticos, log | `backend/app/api/`, `services/` | `tests/security/` | planejado |
-| Senhas | Argon2id; política mínima; troca invalida sessões | `adapters/`, `services/` | — | planejado |
-| Sessão | Access curto; refresh rotativo em cookie HttpOnly/Secure/SameSite; detecção de reuso; logout revoga | `api/`, `adapters/persistence/` | — | planejado |
-| CSRF (servidor) | Token em toda escrita; checagem de Origin/Referer | `backend/app/api/` | `tests/security/` | planejado |
-| CORS | Lista fixa (`ALLOWED_ORIGINS`), sem `*` com credenciais | `backend/app/main.py` (middleware não existe) | — | planejado (setting existe, sem middleware) |
-| Cadastro público | Não existe; conta só pelo dono (CLI/endpoint admin) | — | — | planejado |
-| Rate limit | Global e por rota (login, scan, páginas) | `backend/app/api/` | — | planejado |
-| IP real para rate limit | Usar `request.client.host` após uvicorn; fonte única é `FORWARDED_ALLOW_IPS` | `infra/`, `backend/app/api/` | — | planejado |
-| Cookies | `COOKIE_SECURE` (setting existe, sem uso) | `backend/app/core/config.py` | — | planejado |
-| IDOR | Toda query filtrada por `user_id`; IDs opacos | `services/`, `adapters/persistence/` | `tests/security/` | planejado |
-| Path traversal | Caminho nunca vem do cliente; `resolve()` + checagem de raiz | `adapters/storage/` | `tests/security/` | planejado |
-| Zip bomb / zip-slip (CBZ/CBR/EPUB) | Limites de tamanho, entradas e razão; sem extração em disco | `adapters/extractors/` | `tests/security/` | planejado |
-| XSS via EPUB | iframe `sandbox` sem `allow-scripts` | `frontend/src/features/reader-epub/` | e2e | planejado |
-| CBR | Extrator externo com timeout, sem shell | `adapters/extractors/` | — | planejado |
-| Entrada inválida | Pydantic estrito (`extra="forbid"`), limites | `backend/app/api/` | — | planejado |
-| Corpo e Range grandes | Limite de tamanho; paginação obrigatória; timeouts | `backend/app/api/` | — | planejado |
-| Cache de respostas autenticadas | `Cache-Control: no-store` em respostas autenticadas (hoje só no 500) | `backend/app/api/security_headers.py` | — | **pendente** |
-| Dependências e segredos | pip-audit, bandit e npm audit no `check`; scan de segredos por regex; gitleaks configurado | `scripts/check.ps1`, `scripts/check.sh`, `scripts/gitleaks.toml` | — | parcial: gitleaks não instalado (nunca executado); semgrep e SBOM não existem |
-| Logs e auditoria | Trilha de login, falhas, troca de senha, scan; sem dados sensíveis | `services/`, `AuditLog` | — | planejado |
+| Senha em claro ou em hash fraco | Argon2id (t=3, m=64 MiB, p=4); só o hash vai ao banco | `adapters/security/argon2_hasher.py`, `persistence/user_repository.py` | `unit/test_argon2_hasher.py`, `security/test_password_storage.py` | Implementado |
+| Enumeração por resposta ou tempo | Mesmo 401, corpo, cabeçalhos e custo para conta inexistente, inativa ou senha errada (hash dummy) | `services/auth_service.py`, `argon2_hasher.py` | `security/test_login_bruteforce.py` (`test_lockout_is_identical…`, `test_response_time…`), `unit/test_auth_service.py` | Implementado |
+| Senha fraca | Política: 12–128; diferente do username; username (≥ 3) não contido nem invertido; 20 senhas comuns; ≥ 5 distintos; bloco repetido fraco; sequências de alfabeto, dígitos e teclado. Mensagens fixas, sem eco | `domain/password_policy.py` | `unit/test_password_policy.py`, `regression/test_reg_012…` | Implementado (denylist grande não feita, FIND-007) |
+| Senha só em `getpass`; nunca em argumento ou saída | CLI | `cli.py` | `integration/test_cli.py` | Implementado |
+| Cadastro público | Não existe. Conta só pela CLI (`create-user`); sem rota de registro nem de "esqueci a senha" | `cli.py` | `integration/test_cli.py` | Implementado (CLI); endpoint admin planejado |
+| Token em JavaScript (XSS) | Cookies `HttpOnly`; tokens nunca no corpo; ESLint bloqueia `localStorage`/`sessionStorage` | `api/auth.py`, `frontend/eslint.config.js` | `security/test_cookies_and_cache.py`, `frontend/tests/unit/eslint-rules.test.ts` | Implementado |
+| Cookie sem atributos corretos | `access_token` Path=/api; `refresh_token` Path=/api/v1/auth; `csrf_token` Path=/ legível; todos `SameSite=Strict`, host-only, `Secure` por `COOKIE_SECURE` | `api/auth.py` | `security/test_cookies_and_cache.py` | Implementado; `Secure` verificado no `Set-Cookie` (HTTPS real fora de escopo) |
+| Access token forjado, `alg:none`, algoritmo trocado | HS256 fixo; chave HKDF própria; `exp`, `nbf`, `sub`, `sid`, `jti`, `iat` obrigatórios; tipos checados; ≤ 2048 caracteres | `adapters/security/jwt_tokens.py`, `core/keys.py` | `security/test_jwt_tokens.py`, `security/test_session_attacks.py` | Implementado |
+| Access válido após revogação ou desativação | Validado no banco a cada requisição: usuário ativo, família não revogada, `iat` ≥ última troca de senha | `services/auth_service.py` (`current_user`) | `security/test_session_attacks.py`, `unit/test_auth_service.py` | Implementado |
+| Refresh roubado ou reutilizado | Rotação atômica; reuso fora da janela (10 s) revoga a família e audita; só o hash SHA-256 fica no banco | `services/auth_service.py`, `persistence/refresh_token_repository.py` | `unit/test_auth_service.py`, `integration/test_auth_repositories.py`, `integration/test_auth_api.py` | Implementado (ladrão dentro da janela não é detectado, FIND-005) |
+| Corrida de dois refresh derruba a sessão | Janela `REFRESH_REUSE_GRACE_SECONDS` (padrão 10, máx. 60) emite sessão irmã | `services/auth_service.py` | `regression/test_reg_010_…` | Implementado (FIND-005) |
+| Sessão que não expira | TTL de refresh 30 dias; teto absoluto da sessão 90 dias, mesmo com rotação | `services/auth_service.py` | `unit/test_auth_service.py` (`test_session_has_an_absolute_lifetime…`) | Implementado |
+| Troca de senha não invalida sessões | Revoga todas as famílias do usuário; `iat` anterior à troca é recusado; reset pelo CLI e desativação valem na hora | `services/auth_service.py`, `services/user_service.py` | `integration/test_auth_api.py`, `unit/test_auth_service.py` | Implementado |
+| Token de sessão alheia | `sid` precisa pertencer ao `sub` no banco | `services/auth_service.py` | `security/test_session_attacks.py` (`test_session_of_another_user…`) | Implementado |
+| Logout que não revoga | Revoga a família (por refresh ou access); idempotente | `services/auth_service.py`, `api/auth.py` | `integration/test_auth_api.py` | Implementado |
+| Token bruto no banco | Só SHA-256 de refresh; access não é gravado | `persistence/refresh_token_repository.py` | `integration/test_auth_repositories.py` (`test_keys_are_stored_hashed…`) | Implementado |
 
-## Pendências
+### Anti brute force (ADR 0009)
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| Adivinhar senha de uma conta | Bloqueio por par (IP, conta): 5 falhas; janela 900 s; bloqueio 300 s dobrando até 3600 s | `services/auth_service.py`, `domain/lockout.py` | `security/test_login_bruteforce.py`, `unit/test_lockout.py` | Implementado |
+| Ataque distribuído contra uma conta | Bloqueio por conta em todos os IPs: 15 falhas; só para IPs sem login recente (30 dias) | `services/auth_service.py` | `security/test_login_bruteforce.py` (`test_distributed_attack…`) | Implementado; **risco residual FIND-009 (aberto)** |
+| Spray de usernames | Bloqueio por IP: 20 falhas, qualquer conta | `services/auth_service.py` | `unit/test_auth_service.py` (`test_changing_username…`) | Implementado |
+| Vítima trancada pelo atacante | Um IP sozinho não atinge o limite da conta para todos (fórmula validada no startup) | `core/config.py` (`max_failures_from_one_address`) | `security/test_settings.py` (`test_one_address…`, `test_formula…`) | Implementado |
+| Corrida: N tentativas simultâneas passam do limite | Verificação e reserva de falha sob trava antes do Argon2; libera só em sucesso ou aborto | `services/auth_service.py` (`_begin_attempt`) | `regression/test_reg_009_…` | Implementado (FIND-004); atômico só por processo |
+| Senha correta burla bloqueio | Bloqueio é verificado antes da senha | `services/auth_service.py` | `unit/test_auth_service.py` (`test_lock_check_happens_before…`) | Implementado |
+| Variação de caixa ou espaço no username | Chave normalizada | `services/auth_service.py` (`_account_key`) | `unit/test_auth_service.py`, `security/test_login_bruteforce.py` | Implementado |
+| Log de tentativas com dado claro | Chaves em HMAC truncado por escopo; auditoria sem IP ou username | `adapters/persistence/login_attempt_store.py`, `services/auth_service.py` | `integration/test_auth_repositories.py`, `security/test_login_bruteforce.py` (`test_attempts_table…`) | Implementado |
+| Auditoria inflada por tentativas bloqueadas | `login.locked` no máximo 1 por IP a cada 60 s (tabela limitada a 10 000); purga isolada, também em login falho e refresh | `services/auth_service.py`, `cli.py` (`purge`) | `regression/test_reg_011_…` | Implementado (FIND-006) |
+| Falha de purga derruba login | Purga isolada; log genérico; nova tentativa em 5 min | `services/auth_service.py` | `regression/test_reg_011_…` (`test_a_failing_purge…`) | Implementado |
+| Flood de login esgota as threads da API | Argon2 com 2 slots, 8 em espera por até 1 s; excedente recebe 503 + `Retry-After` sem registrar falha | `adapters/security/argon2_hasher.py`, `adapters/gate.py` | `regression/test_reg_007_…` | Implementado (FIND-002); **reverificação ao vivo pendente** |
+
+### CSRF, CORS, origem
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| CSRF em toda escrita sob `/api` | Cookie `csrf_token` assinado (nonce + HMAC com subchave); cabeçalho `X-CSRF-Token` igual ao cookie; aplica-se a login, refresh, logout, troca de senha, scan, `PUT`/`DELETE` de progresso e `PUT` de preferências. Fora de `/api` não há escrita | `api/csrf.py` | `security/test_csrf.py` (23 funções), `security/test_progress_authz.py` (`test_writes_require_csrf`) | Implementado |
+| Origem estrangeira | `Origin` deve ser permitido; sem `Origin`, `Sec-Fetch-Site` ou `Referer` permitido; `Origin` repetido → 403 | `api/csrf.py` | `security/test_csrf.py`, `regression/test_reg_015_…` (`test_5_…`) | Implementado |
+| Token CSRF de outra sessão ou plantado | Assinatura HMAC com subchave; token forjado com a chave crua é recusado | `api/csrf.py`, `core/keys.py` | `security/test_csrf.py` (`test_token_made_with_the_raw_secret…`) | Implementado (token não é amarrado à sessão, FIND-010 item 4) |
+| CORS permissivo com credenciais | Lista exata (`ALLOWED_ORIGINS`), sem `*`, sem caminho nem barra final; CORS só existe se a lista não estiver vazia. Na imagem, a SPA é mesma origem e CORS não é necessário | `core/config.py`, `main.py` | `security/test_rate_limit_and_cors.py` | Implementado |
+| Redirect com `Host` refletido | `redirect_slashes=False`; barra final dá 404 sem `Location` | `main.py` | `regression/test_reg_013_…` | Implementado (FIND-008) |
+
+### Limites, concorrência e entrada
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| Flood por IP | Balde de fichas por IP, só em `/api`: global 600/min (burst 200); estrito 20/min (burst 10) somado ao global **só** em `login`, `refresh`, `logout` e `change-password`; `me` e `csrf` contam só no global; 429 idêntico ao bloqueio de login; em memória | `api/rate_limit.py`, `adapters/security/rate_limiter.py` | `security/test_rate_limit_and_cors.py`, `unit/test_rate_limiter.py`, `regression/test_reg_019_…` | Implementado (uma worker; limite multiplica com réplicas) |
+| Estouro do balde estrito por leitura normal | `me` e `csrf` (chamados a cada carga) não consomem o balde de login | `api/rate_limit.py` (`STRICT_AUTH_PATHS`) | `regression/test_reg_019_…` | Implementado |
+| Rate limit por rota de páginas e scan | Não existe. Páginas e scan só têm o limite global e a concorrência do gate | — | — | **Pendente** (decisão do dono) |
+| IP forjado por cabeçalho | App ignora `X-Forwarded-For`, `X-Real-IP` e `Forwarded`; IP vem do uvicorn (`FORWARDED_ALLOW_IPS`) | `api/http_utils.py`, `infra/entrypoint.sh` | `security/test_rate_limit_and_cors.py` (`test_forwarded_headers_are_ignored…`) | Implementado; ver risco residual de proxy |
+| Rotação de IPv6 dentro do /64 | Chave normalizada para o /64 | `api/http_utils.py` | `security/test_rate_limit_and_cors.py` | Implementado |
+| Corpo grande ou sem `Content-Length` | 413 por cabeçalho e por bytes recebidos (64 KiB); 400 para `Content-Length` inválido | `api/body_limit.py` | `security/test_body_limit.py`, `regression/test_reg_005_…` | Implementado |
+| Mass assignment e tipos errados | Schemas `extra=forbid` e `strict`; 422 genérico sem eco da entrada | `api/auth_schemas.py`, `api/progress_schemas.py`, `api/errors.py` | `integration/test_auth_api.py` (`test_login_validation_errors_do_not_echo_input`), `integration/test_progress_api.py` (`test_invalid_bodies_are_a_generic_422`) | Implementado |
+| Leitura de página cara ou sem limite | Índice de arquivo em cache LRU (64); gate de 4 leitores e 16 em espera (2 s); 503 + `Retry-After` | `adapters/extractors/_common.py`, `cbz.py`, `folder.py` | `regression/test_reg_008_…` | Implementado (FIND-003); pico de memória 4 × 64 MiB, sem streaming |
+| Scan que apaga o catálogo | Não marca ausente com erro de caminhada, erro de banco ou raiz vazia com itens | `services/scan.py`, `adapters/persistence/item_repository.py` | `regression/test_reg_017_…` | Implementado (FIND-012) |
+| Scan concorrente | Uma varredura por vez; 409 para a segunda | `services/scan_runner.py` | `integration/test_library_api.py` (`test_second_scan…`) | Implementado |
+| Erro interno com detalhe | 500 genérico com cabeçalhos; `ValidationError` sem o valor de `SECRET_KEY`; erro de banco sem SQL nem parâmetros | `api/security_headers.py`, `core/config.py`, `persistence/*` | `security/test_security_headers.py`, `regression/test_reg_001_…`, `security/test_session_attacks.py` | Implementado |
+| Erro de biblioteca com caminho | Mapeamento por classe; sem caminho nem nome de arquivo na resposta | `api/errors.py` | `security/test_items_api.py` (`test_extractor_errors_never_leak…`) | Implementado |
+| Caminho vindo do cliente | Cliente envia só UUID opaco e número de página; `rel_path` nunca sai da API | `api/items.py`, `api/library_schemas.py` | `security/test_items_api.py` (`test_list_never_exposes_paths`) | Implementado |
+| Caminho traversal, absoluto, unidade, nome reservado | `LocalStorage` é o único que resolve; `..`, absoluto, `\`, nomes do Windows, bytes nulos, > 1024 caracteres, > 16 níveis recusados | `adapters/storage/local.py` | `security/test_local_storage.py` (`test_rejects_hostile_paths`, parametrizado) | Implementado |
+| Link simbólico ou junction para fora | Rejeita `is_symlink` e `is_junction` reais; não usa o atributo ReparsePoint (OneDrive) | `adapters/storage/local.py` | `security/test_local_storage.py` | Implementado; em Windows os casos de link podem ser pulados |
+| SQL injection em busca | Parâmetros ligados; `%`, `_` e `\` escapados no LIKE; NUL não casa | `adapters/persistence/item_repository.py` | `integration/test_item_repository.py` (`test_search_*`) | Implementado |
+| Zip bomb (CBZ) | Limites: 10 000 entradas; 4 GiB no total; 64 MiB por página; razão 100 (entradas ≥ 64 KiB); leitura em memória, sem extração em disco | `adapters/extractors/cbz.py`, `domain/library.py` | `security/test_cbz_extractor.py` | Implementado (CBZ) |
+| Zip-slip, symlink e criptografia no CBZ | Nome com `..`, absoluto, unidade ou `\` recusado; symlink e criptografado recusados | `adapters/extractors/cbz.py` | `security/test_cbz_extractor.py` | Implementado |
+| Arquivo falso como imagem | Bytes mágicos (jpeg, png, webp, gif, avif); extensão não basta; conta de página valida todos os arquivos (pasta e CBZ) | `adapters/extractors/_common.py`, `folder.py` | `security/test_cbz_extractor.py`, `security/test_folder_extractor.py`, `regression/test_reg_016_…` | Implementado |
+| Imagem servida com tipo errado | `Content-Type` só dos tipos permitidos; `nosniff`; `Content-Disposition: inline` | `api/items.py` | `security/test_items_api.py` (`test_non_allowed_media_types…`) | Implementado |
+| Título ou nome hostil | Controles Unicode e `<` `>` viram espaço; título ≤ 200 caracteres | `domain/library.py` (`sanitize_title`) | `unit/test_library_services.py` | Implementado |
+| `ComicInfo.xml` (XXE) | Ignorado; sem parser XML | `adapters/extractors/cbz.py` | inspeção | Implementado (sem leitura) |
+| IDs hostis | UUID canônico; formato inválido ou inexistente = 404 genérico (itens, páginas, progresso) | `api/ids.py`, `api/items.py`, `api/progress.py` | `security/test_items_api.py` (`test_hostile_ids…`), `security/test_progress_authz.py` (`test_malformed_ids…`) | Implementado |
+
+### Progresso e preferências (ADR 0013)
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| Ler ou alterar progresso de outro usuário (IDOR) | Toda consulta filtra por `user_id` do token; o cliente não envia `user_id` | `adapters/persistence/progress_repository.py`, `api/progress.py` | `security/test_progress_authz.py` (`test_a_user_never_reads_or_changes_another_users_progress`) | Implementado |
+| Preferências de outro usuário | `GET`/`PUT` só do próprio usuário; UPDATE dirigido às duas colunas | `api/preferences.py`, `adapters/persistence/preferences_repository.py` | `security/test_progress_authz.py` (`test_preferences_are_per_user`), `integration/test_progress_repository.py` | Implementado |
+| Cliente forja `percent`, `finished` ou data | Schema `extra=forbid`; `percent`, `finished` e `updated_at` são calculados no servidor | `api/progress_schemas.py`, `domain/progress.py` | `integration/test_progress_api.py` (`test_client_cannot_send_percent_or_finished`) | Implementado |
+| Posição fora do item | `locator` entre 0 e `page_count - 1`; fora = 422 genérico, nada gravado | `domain/progress.py`, `services/progress_service.py` | `unit/test_progress_service.py`, `integration/test_progress_api.py` | Implementado |
+| Corrida de dois aparelhos | Upsert atômico; sem duplicata nem erro; último a gravar vence (ADR 0013) | `adapters/persistence/progress_repository.py` | `integration/test_progress_repository.py` (`test_concurrent_upserts…`) | Implementado; perda de uma escrita concorrente é aceita |
+| Progresso sobrevive a item ou usuário removido | Não: CASCADE remove | `adapters/persistence/models.py`, `migrations/0004` | `integration/test_progress_repository.py` (`test_cascade…`) | Implementado |
+| Dado de leitura no navegador | Nenhum: `localStorage`/`sessionStorage` proibidos; `indexedDB` só em `shared/offline` (vazio) | `frontend/eslint.config.js` | `frontend/tests/unit/eslint-rules.test.ts` | Implementado |
+| Resposta de progresso em cache | `no-store` em toda rota `/api` | `api/security_headers.py` | `security/test_progress_authz.py` (`test_responses_are_no_store…`) | Implementado |
+| Abuso de navegação (uma página por toque) | Não limitado por rota; uso normal não consome o balde estrito | `api/rate_limit.py` | `integration/test_progress_api.py` (`test_normal_page_turning_is_not_rate_limited`) | Implementado |
+
+### Cache, cabeçalhos e saída HTTP
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| Resposta autenticada em cache | `Cache-Control: no-store` e `Pragma: no-cache` em todo `/api` (inclusive erro, 404, 405, 413, 429, 500) | `api/security_headers.py` | `security/test_cookies_and_cache.py`, `security/test_security_headers.py` | Implementado (ADR 0002, 0006) |
+| Cache de imagem além da regra | Exceção estreita: GET 200/304 em página e capa → `private, max-age=3600`, escrito pelo middleware (ADR 0010) | `api/security_headers.py`, `api/items.py` | `security/test_cache_exception.py`, `security/test_items_api.py` | Implementado; **risco residual: 1 h após logout (FIND-010 item 7)** |
+| Rota relaxa cabeçalho de segurança | Middleware sobrepõe cabeçalhos da rota (ADR 0006) | `api/security_headers.py` | `security/test_security_headers.py` (`test_preexisting_security_headers_are_replaced`) | Implementado |
+| Clickjacking, sniffing, referrer, APIs | CSP explícita (ADR 0012): `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`; `nosniff`; `Referrer-Policy: no-referrer`; `Permissions-Policy` | `api/security_headers.py` | `security/test_security_headers.py`, `security/test_spa.py` (`test_security_headers_cover_static_responses`) | Implementado |
+| Versão do servidor revelada | `--no-server-header` no uvicorn | `infra/entrypoint.sh` | `regression/test_reg_015_…` (`test_1_…`) | Implementado (FIND-010 item 1) |
+| Slowloris e conexões abertas | `--limit-concurrency 100`, `--timeout-keep-alive 5`, `--timeout-graceful-shutdown 20` (por env) | `infra/entrypoint.sh` | `regression/test_reg_015_…` (`test_2_…`) | Parcial: timeout de cabeçalho depende do proxy |
+| Docs e OpenAPI expostos | Desligados (`docs_url`, `redoc_url`, `openapi_url` = None) | `main.py` | `security/test_spa.py` (`test_docs_are_not_exposed`) | Implementado |
+| Erro da SPA com detalhe | Frontend: erro 429 e 500 genéricos; corpo não-JSON vira `ApiError` | `frontend/src/shared/api-client/` | `frontend/tests/unit/api-client.test.ts` | Implementado (cliente) |
+
+### Servir o frontend (ADR 0012)
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| Traversal, caminho codificado, NUL, `\`, `:` | Caminho validado antes do disco; resolvido e checado contra a raiz | `api/spa.py` | `security/test_spa.py` (`test_traversal_and_malformed_paths…`, `test_encoded_traversal_through_a_real_client`) | Implementado |
+| Dotfiles (`.env`, `.git`) | Segmento com ponto nunca é servido | `api/spa.py` | `security/test_spa.py` (`test_dotfiles_are_never_served`) | Implementado |
+| Symlink para fora da pasta | Não segue symlink; raiz resolvida uma vez | `api/spa.py` | `security/test_spa.py` (`test_symlink_out_of_the_root…`, `test_symlinked_root…`) | Implementado; casos de link podem ser pulados no Windows |
+| `/api` desconhecido devolvendo a SPA | Só fora de `/api`; `/api/**` desconhecido = JSON 404 | `api/spa.py` | `security/test_spa.py` (`test_unknown_api_path…`) | Implementado |
+| Métodos inesperados na SPA | Só GET e HEAD; resto 405 | `api/spa.py` | `security/test_spa.py` (`test_unsafe_methods_outside_api_are_405`) | Implementado |
+| Shell ou service worker em cache longo | `index.html`, `sw.js`, `manifest` e fallback: `no-cache`; só `assets/*` (hash no nome) é imutável | `api/spa.py` | `security/test_spa.py` (`test_shell_and_service_worker_are_always_revalidated`, `test_fallback_index_is_never_cached_long`) | Implementado |
+| Arquivo estático consome limite da API | Não consome | `api/rate_limit.py` | `security/test_spa.py` (`test_static_files_do_not_consume_the_api_rate_limit`) | Implementado |
+
+### Metadados, saída de rede, capas e texto de fonte (ADR 0015, 0016)
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| SSRF: o servidor buscar URL arbitrária | Host só da lista fixa de 7 (não configurável); IP literal, userinfo e porta diferente de 443 recusados; https obrigatório | `adapters/http/safe_gateway.py` (`check_url`, `ALLOWED_HOSTS`) | `security/test_safe_gateway.py` | Implementado |
+| Redirecionamento para rede interna | Nenhum redirecionamento é seguido; 3xx vira erro | `safe_gateway.py` (`_read`) | `security/test_safe_gateway.py` (`redirect`) | Implementado |
+| DNS que aponta para rede interna (rebinding) | Endereço resolvido tem de ser global (`is_global`); conexão fixada ao IP verificado; TLS verifica o nome do host | `safe_gateway.py` (`_public_address`, `_PinnedHTTPSConnection`) | `security/test_safe_gateway.py` | Implementado |
+| Vazamento de dado do usuário ou do servidor | Só título limpo e sinopse pública saem; sem cookie, sem credencial, sem IP do cliente; User-Agent genérico (`BibliotecaPWA/1.0`) | `services/metadata_service.py`, `safe_gateway.py` | `security/test_safe_gateway.py`, `integration/test_metadata_enrich.py` | Implementado |
+| Resposta grande, lenta ou de tipo errado | JSON até 1 MiB; imagem até 5 MiB; tipo de mídia por lista; tempo total de 1 a 60 s; POST só para AniList | `safe_gateway.py`, `adapters/metadata/_json.py` | `security/test_safe_gateway.py` | Implementado |
+| Excesso de requisições à fonte | Espaçamento de 0,5 s por host; espera acima de 10 s falha em vez de bloquear thread | `safe_gateway.py` (`_pace`, `_penalize`) | `security/test_safe_gateway.py` | Implementado |
+| Desligar toda saída | `METADATA_ENABLED=false`: gateway sem socket; enriquecimento responde 503 | `composition.py`, `safe_gateway.py` (`DisabledGateway`), `api/library.py` | `security/test_settings.py`, `integration/test_metadata_enrich.py` | Implementado |
+| Caminho de capa vindo da rede, do banco ou do cliente | Nome só `<uuid>` + extensão jpg, png ou webp, gerados pelo servidor; nome lido do banco é validado de novo; symlink nunca seguido | `adapters/storage/cover_store.py` | `security/test_cover_store.py` (`test_only_a_server_uuid…`, `test_a_symlink…`) | Implementado |
+| Arquivo que não é imagem gravado ou servido | Bytes mágicos (JPEG, PNG, WebP) antes de gravar e antes de servir; tipo vem dos bytes, não da extensão; máximo 5 MiB | `domain/metadata.py` (`sniff_image`), `cover_store.py` | `security/test_cover_store.py` (`test_the_type_served…`, `test_read_refuses…`) | Implementado |
+| Escrita de capa interrompida ou concorrente | Temporário com criação exclusiva e `fsync`; renomeação atômica; falha remove o temporário | `cover_store.py` | `security/test_cover_store.py` (`test_commit_is_an_atomic_rename…`, `test_concurrent_commits…`) | Implementado |
+| Descrição com HTML, script ou markdown | Sanitizada no domínio (tags, scripts e estilos, markdown, controles); até 4 000 caracteres; exibida como texto puro (React, sem `innerHTML`) | `domain/metadata.py` (`sanitize_description`), `frontend/src/features/series/components/SeriesDescription.tsx` | `unit/test_metadata_domain.py`, `security/test_metadata_api.py`, `frontend/tests/unit/series.test.tsx` | Implementado |
+| Link externo malicioso | Link só se https (`safeHttpsUrl`); qualquer outro valor vira texto sem link | `frontend/src/shared/series/types.ts`, `SeriesPage.tsx`, `MetadataPanel.tsx`, `SeriesDescription.tsx` | `frontend/tests/unit/series.test.tsx`, `metadata.test.tsx` | Implementado |
+| Atribuição ausente ou falsa | `description_origin` e `description_source_*` gravados com a fonte; tradução marcada; Wikipédia com CC BY-SA na tela | `services/metadata_service.py` (`_resolve_description`), `api/series_schemas.py`, `SeriesDescription.tsx` | `integration/test_metadata_fusion.py`, `frontend/tests/unit/series.test.tsx` | Implementado |
+| Casamento errado (obra trocada) | Limiar 0,85 (0,9 para só-descrição); margem de 0,02; edição penalizada; ano incoerente descartado; em dúvida, `not_found` | `domain/metadata.py` (`pick_best`) | `unit/test_metadata_domain.py`, `integration/test_metadata_fusion.py`, `regression/test_reg_022…` | Implementado (risco residual: casamento por título) |
+| Automação sobrescreve edição manual | Escrita condicional ao estado atual; `manual` nunca é alvo, nem com `force` | `adapters/persistence/series_repository.py` (`update_metadata`), `services/metadata_service.py` | `regression/test_reg_021…` | Implementado |
+| Não admin altera metadados ou dispara enriquecimento | `require_admin` em candidatos, `select`, `PUT`, `DELETE`, `enrich` e status; escrita sob `/api` exige CSRF | `api/series.py`, `api/library.py`, `api/csrf.py` | `security/test_metadata_api.py`, `security/test_series_authz.py` | Implementado |
+| Busca ao vivo em massa (custo e cota de terceiros) | 10 por minuto por usuário, checado antes de qualquer saída; 429 com `Retry-After` | `api/series.py` (`metadata_candidates`), `composition.py` (`candidates_limiter`) | `security/test_metadata_api.py` | Implementado |
+| Erro de fonte com detalhe | 502 genérico sem host, URL ou motivo; motivo só no log de nível info | `api/errors.py`, `services/metadata_service.py` | `security/test_metadata_api.py` | Implementado |
+| Série ou progresso de outro usuário | Série é global (sem dado pessoal); progresso e `continue` sempre do `user_id` do token | `services/series_service.py`, `adapters/persistence/progress_repository.py` | `security/test_series_authz.py` (`test_one_users_reading…`) | Implementado |
+| Caminho de arquivo na resposta de série | Nunca: `folder_rel_path`, `cover_path` e URL de capa ficam fora de `series_schemas.py` (`extra=forbid`) | `api/series_schemas.py`, `api/series.py` | `security/test_series_authz.py`, `security/test_metadata_api.py` | Implementado |
+| Cache de capa de série | Mesma exceção do ADR 0010: privado, 1 h, só GET 200/304; rota não escolhe o cabeçalho | `api/security_headers.py` (`_CACHEABLE_PATH`) | `security/test_cache_exception.py` | Implementado; **risco residual: 1 h após logout (FIND-010 item 7)** |
+| Política de conteúdo da capa | CSP inalterada: `img-src 'self' data: blob:`; capa é sempre same-origin | `api/security_headers.py` | `security/test_security_headers.py` | Implementado |
+
+### Metadados: quem sai para a rede
+
+Único módulo com saída de rede: `SafeGateway` (`backend/app/adapters/http/safe_gateway.py`). Os links de página de fonte (MangaDex, AniList, Wikipédia, Google Livros) são só texto para o usuário; o app não os acessa.
+
+| Host (allowlist fixa) | Quem chama | O que sai | Quando | Limite |
+|---|---|---|---|---|
+| `api.mangadex.org` | `MangaDexProvider` | título limpo da série (até 100 caracteres); id da obra já devolvido pela fonte | enriquecimento e busca ao vivo do admin | JSON até 1 MiB |
+| `uploads.mangadex.org` | `MangaDexProvider` (capa) | só a URL devolvida pela API da fonte | ao baixar a capa | imagem até 5 MiB |
+| `graphql.anilist.co` | `AniListProvider` | título limpo, como variável de busca (POST) | enriquecimento e busca ao vivo | POST até 16 KiB |
+| `s4.anilist.co` | `AniListProvider` (capa) | só a URL devolvida pela API da fonte | ao baixar a capa | imagem até 5 MiB |
+| `pt.wikipedia.org` | `WikipediaProvider` | título limpo | só se as fontes de obra não trouxeram descrição em pt-br | JSON até 1 MiB |
+| `www.googleapis.com` | `GoogleBooksProvider` | título limpo | idem | JSON até 1 MiB |
+| `api.mymemory.translated.net` | `MyMemoryTranslator` | trechos da sinopse pública já sanitizada (até 1 500 caracteres; até 400 bytes por requisição) | só sem descrição em pt-br e com sinopse em inglês; desligável por `METADATA_TRANSLATE_ENABLED` | para por 6 h após resposta de cota |
+
+Não sai: usuário, senha, token, cookie, IP do cliente, caminho, nome de arquivo, id interno (exceto o id externo da própria fonte).
+
+## Quem sai para a rede
+
+Ver a tabela de metadados acima (única saída de rede do app). Qualquer saída nova exige ADR e teste de allowlist (`backend/AGENTS.md`).
+
+### Segredos, dependências e verificação
+
+| Superfície / ameaça | Controle | Onde | Teste | Status |
+|---|---|---|---|---|
+| `SECRET_KEY` fraca ou ausente | ≥ 32 caracteres, ≥ 12 distintos, sem espaço nas pontas, sem bloco ≤ 8 repetido; app não sobe sem ela; sem padrão; entrypoint valida antes do uvicorn | `core/config.py`, `main.py`, `infra/entrypoint.sh` | `security/test_settings.py` | Implementado; **entropia não medida** (FIND-010 item 10) |
+| Chave crua reutilizada | HKDF com rótulos separados (`access-jwt`, `csrf-token`, `login-attempts`) | `core/keys.py` | `unit/test_keys.py` | Implementado |
+| Versões de dependências | Backend: versões fixas (`==`) em `pyproject.toml`; constraints gerados em `python:3.12.8-slim` (`infra/constraints.txt`); `pip-audit` no `check` | `backend/pyproject.toml`, `infra/constraints.txt` | `regression/test_reg_015_…` (`test_3_…`), `integration/test_docker_files.py` (`test_constraints_pin_every_runtime_dependency`) | Parcial: sem hashes (M8) |
+| Acoplamento entre camadas | import-linter com 8 contratos; violação quebra o teste | `backend/pyproject.toml` | `architecture/test_layers.py` | Implementado |
+| Segredo no código | `scripts/check`: regex reduzida; `gitleaks` configurado. Marcador `secret-scan:allow` só na mesma linha, para valor fictício de teste | `scripts/check.ps1`, `check.sh`, `gitleaks.toml`, `scripts/README.md` | — | Parcial: gitleaks não instalado |
+| Frontend: canais de rede e HTML | ESLint: `fetch`/XHR/WebSocket/`sendBeacon` só no api-client; `indexedDB` só em `shared/offline`; `react/no-danger`; `no-eval` | `frontend/eslint.config.js` | `frontend/tests/unit/eslint-rules.test.ts` | Implementado; acessos indiretos dependem de revisão |
+| Frontend: cache de dados autenticados no SW | `runtimeCaching: []`; `/api` fora do fallback; `skipWaiting` desligado | `frontend/vite.config.ts` | inspeção | Implementado |
+| Frontend: CSRF | Envia `X-CSRF-Token` (valor do cookie `csrf_token`) em métodos que alteram estado (`isStateChanging`); nomes padrão iguais ao backend | `frontend/src/shared/api-client/client.ts`, `csrf.ts` | `frontend/tests/unit/api-client.test.ts`, `api-client-session.test.ts` | Implementado (cliente) |
+| Frontend: sessão | Só 401 em `/auth/me` vira "saiu"; 429, 503 e rede mantêm o estado (`error`); refresh rejeitado encerra a sessão | `frontend/src/shared/session/SessionProvider.tsx`, `api-client/client.ts` | `frontend/tests/unit/session-images.test.tsx` (`only a 401 means signed out`), `auth.test.tsx` | Implementado |
+| Frontend: recuperação de imagem | Não chama `/auth/me`; uma recuperação de sessão por janela de 60 s, compartilhada | `frontend/src/shared/ui/useImageRecovery.ts` | `frontend/tests/unit/session-images.test.tsx` | Implementado |
+| Frontend: preferências | `PUT` sempre com o objeto completo vindo do servidor; nunca a partir de padrões | `frontend/src/shared/preferences/PreferencesProvider.tsx` | `frontend/tests/unit/preferences.test.tsx` | Implementado |
+
+## Riscos residuais (aceitos pela arquitetura ou pendentes de decisão)
+
+| Risco | Efeito | Origem | Situação |
+|---|---|---|---|
+| Ataque distribuído bloqueia a conta em IP novo por até 3600 s | Negação de acesso direcionada e temporária | FIND-2026-009 (ADR 0009) | `open`: **decisão do dono** (`accepted-risk` ou mitigação) |
+| Proxy mal configurado (raio do dano do IP) | Todos os clientes viram um endereço: lock por IP e limites de auth compartilhados; lista ampla permite forjar IP | FIND-2026-001 residual (ADR 0011) | Mitigado por obrigatoriedade e avisos; **operador confere** |
+| Ladrão de refresh dentro de 10 s | Não detectado nessa janela | FIND-2026-005 (ADR 0008) | Aceito; janela configurável (0 a 60 s) |
+| Imagens no cache do navegador 1 h após logout | Dispositivo compartilhado mostra páginas já lidas | FIND-2026-010 item 7 (ADR 0010) | Não mitigado; opções: `Clear-Site-Data` no logout ou TTL menor |
+| Limites e bloqueio em memória (rate limit) e atomicidade só por processo | Com mais de uma worker, limite multiplica | ADR 0007, 0009; `adapters/security/rate_limiter.py` | Limitação aceita: uma worker |
+| Argon2 com 2 slots sob flood | Logins legítimos recebem 503 durante o flood | FIND-2026-002 | Aceito como disponibilidade; resposta idêntica para existente e inexistente |
+| Pico de memória de página | 4 × 64 MiB simultâneos | FIND-2026-003 | Streaming não feito; limite de página é decisão do dono |
+| Token CSRF não amarrado à sessão | Só a checagem de origem protege contra token alheio | FIND-2026-010 item 4 | Pendente |
+| Rate limit por rota de páginas e scan inexistente | Abuso de leitura de páginas só é limitado pelo global de `/api` (600/min, burst 200) e pelo gate | PLANO §6 | Pendente: decisão do dono |
+| Last-write-wins no progresso | Escrita concorrente de dois aparelhos é descartada | ADR 0013 | Aceito; revisar com caso real |
+| Sem CI nem E2E | Regressões de tela e de rede só vistas manualmente | PLANO §8 | Pendente |
+| Cota pública do MyMemory (cerca de 5 000 caracteres por dia por IP, anônimo) | Sinopse fica em inglês ao estourar; tradutor fica quieto por 6 h | ADR 0015 | Aceito; monitorar |
+| Google Livros respondeu 429 em todas as tentativas de validação | Fonte fica indisponível na prática | ADR 0015 | Aceito; não validado de ponta a ponta |
+| Nome da série sai para fontes públicas | Terceiros (MangaDex, AniList, Wikipédia, Google) recebem o título limpo | ADR 0015 | Aceito: exceção autorizada pelo dono em 2026-11-20 |
+| Casamento por título errado | Capa ou sinopse de obra errada | ADR 0015 | Mitigado (limiar, margem, `not_found`, correção manual pelo admin); residual |
+| Capa de série fora do backup de `/data` | Restaurar só `app.db` perde as capas | ADR 0016 | Pendente (decisão do dono; `docs/DEPLOY.md` §6) |
+| Tradução com erro de sentido | Texto marcado como tradução; pode trocar termo | ADR 0015 | Aceito |
+
+## Pendências (segurança)
 
 | Item | Motivo | Ação |
 |---|---|---|
-| Quem serve o HTML da SPA (M5) | Afeta CSP e cabeçalhos do shell | Aguarda decisão do dono; questão aberta |
-| Lockfile do backend e hashes no Dockerfile (M8) | Dockerfile instala por `pyproject.toml` | Fase 1 ou antes da publicação |
-| **`FORWARDED_ALLOW_IPS` diverge entre Dockerfile e compose (M-3)** | `infra/Dockerfile` define `ENV FORWARDED_ALLOW_IPS=127.0.0.1`; compose e `.env.example` usam `172.17.0.1`. Rodar a imagem sem compose não confia no proxy do host (o proxy chega pelo gateway da bridge, nunca por 127.0.0.1) | Alinhar o padrão do Dockerfile ao compose ou remover o `ENV`; até lá, a imagem sem compose não aceita o proxy do host |
-| Checagem de senha vazada (k-anonymity) | Exige serviço externo | Depende de autorização do dono |
-| CAPTCHA (Turnstile/hCaptcha) | Exige serviço externo | Depende de autorização do dono |
-| `Cache-Control: no-store` em respostas autenticadas | Não implementado (só no 500) | Implementar na Fase 1 |
-| Contrato CSRF | Cliente usa cookie `csrf_token` e cabeçalho `X-CSRF-Token` (`VITE_CSRF_COOKIE_NAME`, `VITE_CSRF_HEADER_NAME`); backend ainda não emite o cookie nem valida o cabeçalho | Alinhar cliente e backend na Fase 1 |
-| CSP da rota não pode ser relaxada | ADR 0006: middleware sobrepõe a rota | Revisitar no leitor EPUB/PDF (iframe, `sandbox`) e decidir override por rota (novo ADR) |
-| `npm audit` completo: 4 vulnerabilidades moderadas | Via `vite-plugin-pwa` / `minimatch` (aviso em `scripts/check`, não bloqueia) | Avaliar atualização do `vite-plugin-pwa`; `--omit=dev` está OK |
-| Build da imagem Docker | Não validado | Rodar build antes de publicar |
-| gitleaks | Não instalado; `gitleaks.toml` nunca executado | Instalar e rodar no `check` |
+| FIND-2026-009 (`open`) | Decisão de risco do dono | Registrar `accepted-risk` ou aprovar mitigação; se mitigar: `test_reg_014_…` (número reservado) |
+| Reverificação ao vivo do FIND-2026-002 | Correção medida só em processo separado; p95 não demonstrado | Auditor reverifica (`poc/flood_login.py`) |
+| Reteste dos PoCs (FIND-004, 005) | `race_lockout.py` precisa de ajuste de cookie/CSRF | Auditor |
+| FIND-2026-010 itens 4, 6, 7, 8, 9, 10, 11, 12, 13 | Subitens não adotados | Ver finding; itens 4, 7 e 9 pedem decisão |
+| Lockfile do backend e hashes (M8) | Só versões fixas e constraints sem hashes; digest das imagens base ausente | Antes de publicar |
+| CSP por rota (EPUB/PDF, iframe) | ADR 0006: sem relaxamento; decidir por novo ADR | Fase 4 |
+| `ComicInfo.xml` | Parser XML exige biblioteca segura (dependência nova) | Decisão do dono |
+| CBR (RAR) | Extrator externo com timeout e sem shell, ou conversão | Fase 4 |
+| EPUB (XSS via conteúdo) | iframe `sandbox` sem `allow-scripts` | Fase 4 |
+| `gitleaks`, `semgrep`, SBOM | Ferramentas ausentes ou não planejadas no `check` | Instalar e incluir |
+| `check.sh` em Linux real | Testado só com bash do Git no Windows | Validar |
+| CAPTCHA e checagem de senha vazada | Serviço externo | Só com autorização do dono (ADR 0002) |
+| HSTS | Emitido pelo proxy (fora de escopo) | Confirmar no proxy |
+| `Clear-Site-Data`, HEAD em `/health` (405), query string nos logs do uvicorn | FIND-010 itens 7, 8, 12 | Decidir |
+| `audit_log.ip` e `refresh_tokens.user_agent`/`ip` sem uso | Colunas nunca preenchidas | Preencher ou remover em migração nova (apagar exige autorização) |
+| Denylist de senhas maior | Exige arquivo de dados (dependência) | Decisão do dono (FIND-007) |
+| Build da imagem e `migrate` dentro dela | Validados em 2026-11-20 (relatado); reexecutar a cada mudança de Dockerfile | Manter o roteiro de `docs/DEPLOY.md` |
+| Reteste ao vivo das fontes e do limite de 429 | Validado com respostas canônicas e biblioteca real; não sob carga nem com cota estourada | Dono ou auditor, quando houver janela |
+| Backup de `covers/` (`DATA_DIR`) | Fora do roteiro de backup de `docs/DEPLOY.md` §6 | Decisão do dono |
+| Teste de rede real do `SafeGateway` | Testes usam gateway falso, sem socket; DNS real verificado só por `nslookup` | Aceito; reexecutar em ambiente com DNS público |

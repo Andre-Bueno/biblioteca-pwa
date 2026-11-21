@@ -13,7 +13,7 @@ Stack: Python/FastAPI (backend) + React/TypeScript/Vite (frontend). Detalhes e r
 4. **Testes:** `scripts/check` deve ficar verde. Bug ou finding corrigido exige teste `test_reg_<NNN>_<slug>` em `tests/regression/`. Nunca remover, enfraquecer ou pular teste para passar. Se não rodou, diga que não rodou.
 5. **Mudança pequena e focada.** Uma preocupação por entrega. Em dúvida real, pergunte.
 6. **Documentação viva:** mudou código ⇒ atualize o mapa e o changelog na mesma entrega (regras em `docs/AGENTS.md`).
-7. **Proibido sem autorização do dono:** apagar dados/migrações, desligar verificações de segurança ou CI, adicionar telemetria/serviços externos, fazer deploy, raspar fontes de terceiros, alterar ADR aceito.
+7. **Proibido sem autorização do dono:** apagar dados/migrações, desligar verificações de segurança ou CI, adicionar telemetria/serviços externos, fazer deploy, raspar fontes de terceiros, alterar ADR aceito. **Exceção autorizada pelo dono em 2026-11-20 (ADR 0015):** consulta de capa e descrição em fontes públicas de metadados, só pelo `SafeGateway`, com lista fixa de 7 hosts, enviando apenas o título limpo e a sinopse pública. `METADATA_ENABLED=false` desliga tudo. Nenhuma outra integração externa está coberta.
 
 ## Mapa do projeto
 

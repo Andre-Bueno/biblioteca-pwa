@@ -1,3 +1,6 @@
+# Single container: the backend also serves the frontend (see docs/DEPLOY.md).
+#   docker compose -f infra/compose.example.yml --env-file .env build
+#   docker compose -f infra/compose.example.yml --env-file .env up -d
 services:
   backend:
     build:
@@ -5,22 +8,60 @@ services:
       dockerfile: infra/Dockerfile
     environment:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY (min 32 chars)}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?set ALLOWED_ORIGINS (JSON list)}
-      # Only source of the real client IP (uvicorn --forwarded-allow-ips). A proxy on the host
-      # reaches the container via the bridge gateway (e.g. 172.17.0.1 or 172.16.0.0/12), never
-      # 127.0.0.1. "*" only if the port is not directly reachable. See .env.example.
-      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-172.17.0.1}
+      # Optional: [] (default, also when empty in .env) = same-origin, since the app serves the frontend
+      # itself. It must be valid JSON also for `docker compose exec` (the CLI reads the same env).
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
+      # REQUIRED, no default on purpose. Only source of the real client IP (uvicorn
+      # --forwarded-allow-ips): the IP/CIDR of the reverse proxy that connects to this container.
+      # A wrong value makes every client look like the proxy (one client can lock logins for
+      # all); "*" only if the published port is not reachable directly. How to find it:
+      # .env.example.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:?set FORWARDED_ALLOW_IPS to the IP or CIDR of the reverse proxy that connects to the container (see .env.example)}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # Optional tuning (defaults mirror backend/app/core/config.py; see .env.example).
+      ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-900}
+      REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-2592000}
+      SESSION_ABSOLUTE_TTL_SECONDS: ${SESSION_ABSOLUTE_TTL_SECONDS:-7776000}
+      REFRESH_REUSE_GRACE_SECONDS: ${REFRESH_REUSE_GRACE_SECONDS:-10}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-180}
+      UVICORN_LIMIT_CONCURRENCY: ${UVICORN_LIMIT_CONCURRENCY:-100}
+      UVICORN_TIMEOUT_KEEP_ALIVE: ${UVICORN_TIMEOUT_KEEP_ALIVE:-5}
+      UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN: ${UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN:-20}
+      LOGIN_MAX_FAILURES_ACCOUNT: ${LOGIN_MAX_FAILURES_ACCOUNT:-5}
+      LOGIN_MAX_FAILURES_ACCOUNT_ALL_IPS: ${LOGIN_MAX_FAILURES_ACCOUNT_ALL_IPS:-15}
+      LOGIN_MAX_FAILURES_IP: ${LOGIN_MAX_FAILURES_IP:-20}
+      LOGIN_FAILURE_WINDOW_SECONDS: ${LOGIN_FAILURE_WINDOW_SECONDS:-900}
+      LOGIN_LOCKOUT_SECONDS: ${LOGIN_LOCKOUT_SECONDS:-300}
+      LOGIN_LOCKOUT_MAX_SECONDS: ${LOGIN_LOCKOUT_MAX_SECONDS:-3600}
+      LOGIN_TRUSTED_IP_WINDOW_SECONDS: ${LOGIN_TRUSTED_IP_WINDOW_SECONDS:-2592000}
+      RATE_LIMIT_API_PER_MINUTE: ${RATE_LIMIT_API_PER_MINUTE:-600}
+      RATE_LIMIT_API_BURST: ${RATE_LIMIT_API_BURST:-200}
+      RATE_LIMIT_AUTH_PER_MINUTE: ${RATE_LIMIT_AUTH_PER_MINUTE:-20}
+      RATE_LIMIT_AUTH_BURST: ${RATE_LIMIT_AUTH_BURST:-10}
+      # Public metadata sources (covers/descriptions): fixed hosts, https only, title only (see
+      # .env.example). false = no external access at all.
+      METADATA_ENABLED: ${METADATA_ENABLED:-true}
+      METADATA_PROVIDERS: ${METADATA_PROVIDERS:-mangadex,anilist,wikipedia,googlebooks}
+      METADATA_TRANSLATE_ENABLED: ${METADATA_TRANSLATE_ENABLED:-true}
+      METADATA_LANGUAGES: ${METADATA_LANGUAGES:-pt-br,pt,en}
+      METADATA_HTTP_TIMEOUT_SECONDS: ${METADATA_HTTP_TIMEOUT_SECONDS:-15}
+      METADATA_MAX_PER_RUN: ${METADATA_MAX_PER_RUN:-25}
+      DATA_DIR: /data
       LIBRARY_PATH: /library
       DATABASE_URL: sqlite:////data/app.db
     volumes:
-      # Paths resolve relative to this file (infra/), so ../library is <repo root>/library.
-      - ../library:/library:ro
+      # Relative paths resolve from this file (infra/): ../library is <repo root>/library.
+      - ${LIBRARY_HOST_PATH:-../library}:/library:ro
       - app-data:/data
     ports:
       # Loopback only by default. To expose on the network, set BIND_ADDRESS in .env
       # (e.g. 0.0.0.0) - prefer keeping it on 127.0.0.1 behind a reverse proxy.
       - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8000}:8000"
+    restart: unless-stopped
+    # Must be longer than UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN (20s), or Docker kills the app mid-drain.
+    stop_grace_period: ${STOP_GRACE_PERIOD:-30s}
+    pids_limit: ${PIDS_LIMIT:-256}
+    mem_limit: ${MEMORY_LIMIT:-1g}
     read_only: true
     tmpfs:
       - /tmp
@@ -31,3 +72,12 @@ services:
 
 volumes:
   app-data:
+
+# Fixed subnet: the gateway (first address, e.g. 172.30.77.1) is where a proxy on the HOST appears to
+# the container, and it must not change when `down` recreates the network. Use this CIDR in
+# FORWARDED_ALLOW_IPS if the proxy runs on the host. Change it only if it collides with your network.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET:-172.30.77.0/24}

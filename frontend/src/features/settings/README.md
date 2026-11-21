@@ -1,3 +1,3 @@
 # features/settings
 
-Esqueleto. Estrutura prevista: `components/`, `hooks/`, `api.ts`, `types.ts`. Não importar outras features.
+Tela Ajustes (`/ajustes`): tema, sentido de leitura (via `shared/preferences`), troca de senha e sair (via `shared/session`). Não importar outras features.

@@ -13,3 +13,8 @@ paths = [
   '''(^|[\\/])dist([\\/]|$)''',
   '''(^|[\\/])\.git([\\/]|$)''',
 ]
+# Marcador de linha `secret-scan:allow` (ver scripts/README.md): ignora so a linha que o contem.
+regexTarget = "line"
+regexes = [
+  '''secret-scan:allow''',
+]

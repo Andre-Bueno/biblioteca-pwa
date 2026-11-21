@@ -147,6 +147,8 @@ else
         res="$(grep -HIEin -e "$PAT" -- "${FILES[@]}")"; rc=$?
         if [ $rc -ge 2 ]; then echo "ERRO: grep falhou (status $rc) no padrao: $PAT"; scan_err=1
         elif [ $rc -eq 0 ]; then
+          # Marcador explicito na MESMA linha (apos "arquivo:linha:"): ignora so essa linha.
+          res="$(printf '%s\n' "$res" | grep -Ev '^.*:[0-9]+:.*secret-scan:allow')"
           if [ $kind = loose ]; then res="$(printf '%s\n' "$res" | grep -Eiv "^.*:[0-9]+:.*($PH)")"; fi
           [ -n "$res" ] && hits="$hits$res"$'\n'
         fi

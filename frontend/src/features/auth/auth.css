@@ -1,0 +1,27 @@
+.login {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right))
+    calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
+}
+
+.login__card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(100%, 380px);
+  padding: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+}
+
+.login__title {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.login__submit {
+  width: 100%;
+}

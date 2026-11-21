@@ -8,23 +8,25 @@ version = "0.1.0"
 description = "Backend API for the reader PWA"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi",
-    "uvicorn",
-    "pydantic-settings",
-    "sqlalchemy",
-    "alembic",
+    "fastapi==0.165.0",
+    "uvicorn==0.54.0",
+    "pydantic-settings==2.16.3",
+    "sqlalchemy==2.1.9",
+    "alembic==1.20.1",
+    "argon2-cffi==25.1.0",
+    "PyJWT==2.15.1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "pytest-cov",
-    "httpx",
-    "ruff",
-    "mypy",
-    "import-linter",
-    "bandit",
-    "pip-audit",
+    "pytest==9.2.0",
+    "pytest-cov==7.1.0",
+    "httpx==0.28.1",
+    "ruff==0.17.5",
+    "mypy==2.4.1",
+    "import-linter==2.17",
+    "bandit==1.9.4",
+    "pip-audit==2.10.1",
 ]
 
 [tool.setuptools.packages.find]
@@ -39,7 +41,7 @@ src = ["app", "tests"]
 select = ["E", "F", "I", "B", "UP", "S", "SIM", "C4"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "S105", "S106"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -66,11 +68,16 @@ forbidden_modules = [
     "app.api",
     "app.core",
     "app.main",
+    "app.composition",
     "fastapi",
     "sqlalchemy",
     "pydantic",
+    "pydantic_settings",
     "starlette",
     "httpx",
+    "jwt",
+    "argon2",
+    "alembic",
 ]
 
 [[tool.importlinter.contracts]]
@@ -83,8 +90,15 @@ forbidden_modules = [
     "app.api",
     "app.core",
     "app.main",
+    "app.composition",
     "fastapi",
+    "starlette",
     "sqlalchemy",
+    "pydantic",
+    "pydantic_settings",
+    "jwt",
+    "argon2",
+    "alembic",
 ]
 
 [[tool.importlinter.contracts]]
@@ -96,8 +110,15 @@ forbidden_modules = [
     "app.api",
     "app.core",
     "app.main",
+    "app.composition",
     "fastapi",
+    "starlette",
     "sqlalchemy",
+    "pydantic",
+    "pydantic_settings",
+    "jwt",
+    "argon2",
+    "alembic",
 ]
 
 [[tool.importlinter.contracts]]
@@ -110,13 +131,58 @@ forbidden_modules = ["app.api", "app.services", "app.adapters", "app.main"]
 name = "adapters do not depend on api or services"
 type = "forbidden"
 source_modules = ["app.adapters"]
-forbidden_modules = ["app.api", "app.services", "app.main"]
+forbidden_modules = [
+    "app.api",
+    "app.services",
+    "app.main",
+    "app.composition",
+    "fastapi",
+    "starlette",
+]
+
+# main only assembles the FastAPI app: it reaches adapters/DB solely through composition.
+[[tool.importlinter.contracts]]
+name = "main only wires api, composition and core"
+type = "forbidden"
+source_modules = ["app.main"]
+forbidden_modules = [
+    "app.adapters",
+    "app.services",
+    "app.ports",
+    "app.domain",
+    "sqlalchemy",
+    "alembic",
+    "argon2",
+    "jwt",
+]
+# Direct imports only: app.main -> app.composition -> adapters is the intended path.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "cli only reaches adapters through composition"
+type = "forbidden"
+source_modules = ["app.cli"]
+forbidden_modules = ["app.adapters", "sqlalchemy"]
+# Direct imports only: app.cli -> app.composition -> adapters is the intended path.
+allow_indirect_imports = true
 
 # Exception: app.api.deps is the single composition point allowed to import adapters.
 [[tool.importlinter.contracts]]
 name = "api does not import adapters (except deps) nor sqlalchemy"
 type = "forbidden"
 source_modules = ["app.api"]
-forbidden_modules = ["app.adapters", "sqlalchemy"]
-ignore_imports = ["app.api.deps -> app.adapters", "app.api.deps -> app.adapters.**"]
-unmatched_ignore_imports_alerting = "none"
+forbidden_modules = [
+    "app.adapters",
+    "app.composition",
+    "sqlalchemy",
+    "jwt",
+    "argon2",
+    "alembic",
+]
+# Direct imports only: app.api.deps -> app.composition -> adapters is the intended path.
+allow_indirect_imports = true
+ignore_imports = [
+    "app.api.deps -> app.composition",
+]
+# Fail when an exception no longer matches any import, so stale exceptions cannot linger.
+unmatched_ignore_imports_alerting = "error"

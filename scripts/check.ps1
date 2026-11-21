@@ -201,6 +201,8 @@ if ($gl) {
             break
           }
           foreach ($x in $m) {
+            # Marcador explicito na MESMA linha: ignora so essa linha (valores de teste ficticios).
+            if ($x.Line -match 'secret-scan:allow') { continue }
             if ($p.F -and $x.Line -match $ph) { continue }
             [void]$hits.Add(("{0}:{1}" -f $rel, $x.LineNumber))
           }

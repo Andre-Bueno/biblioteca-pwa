@@ -1,3 +1,28 @@
+# Build context: repository root (docker compose -f infra/compose.example.yml build).
+# One image: the backend serves the built frontend (FRONTEND_DIST_DIR) with its own security
+# headers. TLS, proxy and network are the server's job (docs/DEPLOY.md).
+
+# ---- Stage 1: build the frontend (nothing from this stage but dist/ reaches the runtime) ----
+FROM node:24.21.0-slim AS frontend-build
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+# ---- Stage 2: install the backend into a prefix (pip and the build backend stay here) ----
+FROM python:3.12.8-slim AS backend-build
+# PIP_CONSTRAINT also reaches pip's isolated build environment, so setuptools is pinned too.
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_CONSTRAINT=/constraints.txt
+COPY infra/constraints.txt /constraints.txt
+COPY backend/pyproject.toml /src/pyproject.toml
+COPY backend/app /src/app
+RUN pip install --prefix=/install /src
+
+# ---- Stage 3: runtime ----
 FROM python:3.12.8-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -6,24 +31,42 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
     && mkdir -p /app /data \
-    && chown app:app /app /data
+    && chown app:app /data
 
 WORKDIR /app
 
-COPY backend/pyproject.toml ./
-COPY backend/app ./app
-RUN pip install --no-cache-dir .
+# The installed package (single copy, in site-packages) and its pinned dependencies come from the
+# build stage. pip, setuptools and wheel are removed: nothing in the container installs packages.
+COPY --from=backend-build /install /usr/local
+RUN python -m pip uninstall -y pip setuptools wheel
+COPY backend/migrations ./migrations
+
+# Code is owned by root and read-only for the app user; only /data is writable (plus tmpfs /tmp).
+COPY --from=frontend-build /build/dist /app/static
+# sed: tolerate a checkout with CRLF line endings (a CRLF shebang makes the kernel look for "sh\r").
+COPY infra/entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod 0555 /app/entrypoint.sh
+
+ENV MIGRATIONS_DIR=/app/migrations \
+    FRONTEND_DIST_DIR=/app/static \
+    DATABASE_URL=sqlite:////data/app.db \
+    DATA_DIR=/data \
+    LIBRARY_PATH=/library
+
+# SQLite database (WAL) lives here; mount a named volume. The library is mounted read-only
+# at /library by the compose file.
+VOLUME ["/data"]
 
 USER app
 
-ENV FORWARDED_ALLOW_IPS=127.0.0.1
-
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).status == 200 else 1)"]
 
 # No secrets here: SECRET_KEY and others are provided at runtime via environment.
-# FORWARDED_ALLOW_IPS: IPs/CIDRs of the trusted reverse proxy allowed to set X-Forwarded-*
-# (comma-separated). Keep it restrictive; never "*" when the app is reachable directly.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips \"${FORWARDED_ALLOW_IPS}\""]
+# The entrypoint refuses to start without SECRET_KEY and FORWARDED_ALLOW_IPS (the IP/CIDR of the
+# reverse proxy that connects to this container; no default on purpose, ADR 0011), applies the
+# migrations and execs uvicorn with --no-server-header, --proxy-headers and the limits
+# UVICORN_LIMIT_CONCURRENCY, UVICORN_TIMEOUT_KEEP_ALIVE, UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN.
+ENTRYPOINT ["/app/entrypoint.sh"]

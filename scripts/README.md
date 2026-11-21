@@ -42,6 +42,12 @@ Usa `gitleaks` se estiver no PATH, com `scripts/gitleaks.toml` (`--config`: este
 - Diretorios sao podados ANTES de enumerar: `.venv`, `venv`, `node_modules`, `.git`, `dist`, `build`, caches, `*.egg-info`, `.claude`. `tests/` e varrido; so ficam de fora fixtures conhecidas (`backend/tests/fixtures`, `backend/tests/data`, `frontend/e2e/fixtures`); se precisar de outra, adicione a lista `fixtureDirs` no .ps1 e o loop equivalente no .sh.
 - Erro de leitura e FALHA, nunca falso OK: no check.sh, `grep` com status >= 2; no check.ps1, falha de `Select-String` (arquivo travado/sem permissao) ou de listagem de diretorio. Os caminhos ilegiveis sao listados. Binarios/extensoes ignoradas, arquivos >= 1MB e diretorios podados continuam fora (ignorados de forma explicita). stderr nao e descartado.
 
+### Marcador `secret-scan:allow` (falso positivo em valor de teste)
+
+Para ignorar UMA linha, coloque o texto `secret-scan:allow` em comentario na MESMA linha (ex.: `password: 'correct-horse', // secret-scan:allow`). Vale so para aquela linha, em .ps1 e .sh (e no gitleaks, via `regexTarget = "line"` em `scripts/gitleaks.toml`, sem teste local se o gitleaks nao estiver instalado). Marcador em outra linha nao vale.
+
+Uso permitido: apenas valores de teste obviamente ficticios. NUNCA use para segredo real (se for real, remova-o do repositorio e rotacione). Nao exclua pastas de teste nem relaxe padroes no lugar disso.
+
 Nao substitui o gitleaks.
 
 ## Aviso conhecido e aceito

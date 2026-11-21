@@ -48,9 +48,11 @@ describe('api-client', () => {
   it('omits the CSRF header when the cookie is missing', async () => {
     const { client, fetchImpl } = setup(json({}));
     await client.post('/x', {});
-    expect(
-      (fetchImpl.mock.calls[0]![1]!.headers as Record<string, string>)['X-CSRF-Token'],
-    ).toBeUndefined();
+    // The client first tries to obtain a token (GET /auth/csrf); the mock never sets the cookie,
+    // so the mutation itself goes out without the header.
+    const last = fetchImpl.mock.calls.at(-1)!;
+    expect(last[1]!.method).toBe('POST');
+    expect((last[1]!.headers as Record<string, string>)['X-CSRF-Token']).toBeUndefined();
   });
 
   it('maps 429 to a generic RateLimitError', async () => {

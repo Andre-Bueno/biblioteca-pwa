@@ -1,6 +1,6 @@
 # PLANO — Leitor de Mangás e Livros (PWA para iOS)
 
-> Nome provisório: **Biblioteca**. Status: planejamento. Última atualização: 2026-11-19.
+> Nome provisório: **Biblioteca**. Status: Fase 1, Fase 2 e leitor de mangá (MVP) entregues; Fase 3 parcial; agrupamento em séries e metadados de fontes públicas entregues (2026-11-21, ADR 0014 a 0016). Última atualização: 2026-11-21 (ver `docs/history/2026-11-21-series-e-metadados.md`).
 
 ## 1. Decisões já tomadas
 
@@ -55,7 +55,7 @@ Regra de dependência (sentido único, **dependências apontam para dentro**):
 | Pasta | Conteúdo |
 |---|---|
 | `frontend/src/app/` | Bootstrap, rotas, providers, shell da PWA. Compõe as features. |
-| `frontend/src/features/<nome>/` | Feature completa: telas, hooks, estado e chamadas à API. Ex.: `auth`, `library`, `reader-manga`, `reader-epub`, `reader-pdf`, `progress`, `theme`. |
+| `frontend/src/features/<nome>/` | Feature completa: telas, hooks, estado e chamadas à API. Ex.: `auth`, `library`, `reader-manga`, `reader-epub`, `reader-pdf`, `progress` (só README; código em `shared/`), `theme` (na prática em `shared/theme`). |
 | `frontend/src/shared/` | Cliente HTTP, componentes genéricos, utilitários, cache offline/service worker. |
 
 Regra de dependência:
@@ -99,18 +99,22 @@ LIVROS/
 ## 4. Modelo de dados (inicial)
 
 - `User` (id, email, password_hash, role, theme_pref, created_at)
+  - **Nota (Fase 1A):** implementado com `username` no lugar de `email` (ADR 0007), e com `is_active`, `updated_at` e `password_changed_at`. Tabelas em `backend/migrations/versions/0001_users_and_auth.py`.
 - `Item` (id, type[manga|book|pdf], title, path_rel, format, page_count, cover, content_hash, added_at)
-- `Series` (agrupa volumes/capítulos de um mangá) e `Chapter` (opcional)
+  - **Nota (Fase 1):** tabela `items` na migração `0002` (`rel_path` único, `size`, `mtime_ns`, `page_count`, `missing`) e adaptador `SqlAlchemyItemRepository`. Sem coluna `cover`: a capa é a primeira página. API em `/api/v1/items`.
+- `Series` (agrupa volumes/capítulos de um mangá) e `Chapter` (opcional). **Nota (2026-11-21):** implementado como série por pasta com capítulos em `items` (ADR 0014); metadados em `series` (migrações `0005` a `0007`).
 - `ReadingProgress` (user_id, item_id, **locator**, percent, device_id, updated_at, finished) — chave única `(user_id, item_id)`
   - `locator`: manga/PDF = índice da página; EPUB = CFI.
-  - Conflito entre dispositivos: vence o maior `updated_at`; o servidor define o relógio.
-- `Session` / `RefreshToken` (revogáveis)
-- `AuditLog` (login, falhas, escaneamentos)
+  - Conflito entre dispositivos: vence o maior `updated_at`; o servidor define o relógio. **Nota (Fase 3):** implementado como último a gravar vence, sem comparar timestamps do cliente (ADR 0013). `percent` e `finished` são calculados no servidor.
+  - **Nota (Fase 3):** tabela `reading_progress` na migração `0004` (e `users.reading_direction`).
+- `Session` / `RefreshToken` (revogáveis): implementado como família de `refresh_tokens` (ADR 0008), sem tabela de sessão própria.
+- `AuditLog` (login, falhas, troca de senha, conta): implementado; escaneamento ainda não gera evento.
 
 ## 5. API (contrato)
 
 REST versionada em `/api/v1`. Documentação da API: mapa manual em `docs/maps/API.md` por ora; OpenAPI/Swagger **desligados** no app (`docs_url`, `redoc_url`, `openapi_url` = None em `backend/app/main.py`). Pode ser reavaliado via export em build.
 Principais: `POST /auth/login`, `GET /items`, `GET /items/{id}`, `GET /items/{id}/pages/{n}` (imagem), `GET /items/{id}/file` (EPUB/PDF com *Range*), `PUT /progress/{item_id}`, `GET /progress/continue`, `POST /library/scan`, `GET/PUT /me/preferences`.
+Estado (2026-11-20): implementados todos, exceto `GET /items/{id}/file` (Fase 4). Lista completa em `docs/maps/API.md`.
 
 ## 6. Segurança (requisito de primeira classe)
 
@@ -205,6 +209,70 @@ Auditor re-testa e fecha
 | Decisão M5: quem serve o HTML da SPA (FastAPI ou proxy) | **Sobra**: aguarda decisão do dono; se mudar a arquitetura, novo ADR |
 | Validar `check.sh` em Linux real | **Sobra** |
 
+### Fase 1: estado (2026-11-19)
+
+Status: **concluída (backend)**, com pendências abaixo. Frontend não iniciou a Fase 2.
+
+| Item | Estado |
+|---|---|
+| 1A: banco e usuários (domínio, `UserService`, SQLite WAL, migração `0001`, CLI admin, Argon2id, política de senha) | Entregue (ADR 0007) |
+| 1B: biblioteca, núcleo (domínio, portas, scan incremental, `LocalStorage`, extratores CBZ e pasta) | Entregue |
+| Autenticação e sessão (`/api/v1/auth`, cookies, JWT, refresh rotativo, CSRF, CORS, rate limit, lockout, limite de corpo, `no-store`) | Entregue (ADR 0008, 0009, 0010) |
+| Persistência de `Item`, API de itens e páginas, scan por API e CLI | Entregue (migrações `0002`, `0003`) |
+| `FORWARDED_ALLOW_IPS` obrigatória (M-3) | Entregue (ADR 0011) |
+| Auditoria de 2026-11-19 (12 findings) e correções | Corrigido; todos `fixed` (nenhum `verified`); FIND-2026-009 `open` (decisão do dono) |
+| `ComicInfo.xml` | Ignorado; parser pendente (biblioteca segura a decidir) |
+| Extratores CBR, EPUB e PDF | Fase 4 (não iniciados) |
+| Lockfile do backend e hashes no Dockerfile (M8) | Pendente (versões fixas em `pyproject.toml`) |
+| Build da imagem e `migrate` dentro dela | Não validado |
+| Reverificação ao vivo do FIND-2026-002 e reteste dos PoCs | Pendente (auditor) |
+| Decisão do dono sobre FIND-2026-009 (lock por conta em IP novo) | Pendente |
+| Quem serve o HTML da SPA (M5) | Resolvido em 2026-11-20 (ADR 0012) |
+
+### Fase 2: estado (2026-11-20)
+
+| Item | Estado |
+|---|---|
+| PWA base (Vite, React, TypeScript), manifest, meta tags de iOS, `skipWaiting` desligado, sem cache de `/api` | Entregue |
+| Login (`/login`) e guarda de rota com 4 estados | Entregue |
+| Biblioteca: listar, buscar, filtrar por tipo, "continuar lendo", "carregar mais" | Entregue |
+| Tema claro, escuro e sistema, salvo no servidor | Entregue (ADR 0013) |
+| Servir o frontend pelo backend (M5) | Resolvido (ADR 0012) |
+| Filtro por status (lendo, concluído) | **Pendente** |
+| Instala no iPhone e lista a biblioteca | **Não validado** (iOS real e service worker não provados) |
+
+### Fase 3: estado (2026-11-20)
+
+Status: **parcial**.
+
+| Item | Estado |
+|---|---|
+| Leitor de mangá: RTL, LTR e vertical; toque, deslize, teclado; zoom; pré-carregamento limitado | Entregue (MVP) |
+| Progresso: API (`/progress/*`), salvamento com debounce e `keepalive`, retomada, "continuar lendo" | Entregue (ADR 0013) |
+| Sentido de leitura salvo no servidor (`/me/preferences`) | Entregue |
+| Fecha, reabre e continua na mesma página | Validado no navegador (relato do dev) |
+| Mesma leitura em 2 dispositivos | **Não validado** |
+| Reinício de item concluído ("reler do início") | Pendente (decisão do dono) |
+| E2E: login, página 5 e retomada, tema, offline | **Pendente** (`frontend/tests/e2e/` vazio) |
+
+### Pós-MVP: estado (2026-11-21)
+
+| Item | Estado |
+|---|---|
+| Agrupamento em séries por pasta; capítulos com número e ordem natural; migração `0005` | Entregue (ADR 0014) |
+| Série em `/serie/:id`; próximo e anterior capítulo no leitor; "continuar" no detalhe | Entregue |
+| Metadados de fontes públicas: capa e descrição em pt-BR (MangaDex, AniList, Wikipédia, Google Livros, tradução MyMemory marcada) | Entregue (ADR 0015); Google Livros respondeu 429 na validação |
+| Capas em `DATA_DIR/covers`, servidas pelo app | Entregue (ADR 0016) |
+| Gestão de metadados pelo admin (busca, escolher, editar, remover; CLI `enrich`) | Entregue |
+| Validação com a biblioteca real (série do dono) | Relatada pelo dono; ver histórico |
+| Filtro por status na biblioteca (lendo, concluído) | Pendente |
+| Arquivos corrompidos (92 de 301 CBZ, relatado): recuperação opcional | Pendente (decisão do dono) |
+| Reinício de série concluída; mesma série em dois dispositivos | Pendente |
+| iOS real, service worker e instalação do PWA | Não validados |
+| Proxy e HTTPS reais | Não validados (fora de escopo do app) |
+| Cota pública do MyMemory e 429 do Google Livros | Riscos conhecidos (ADR 0015) |
+| Renomear pasta cria série nova | Limitação aceita (ADR 0014) |
+
 ## 10. Riscos específicos do iOS/PWA
 
 - O Safari pode **apagar o armazenamento** de sites pouco usados; instalado na Tela de Início fica mais protegido, mas o servidor é a fonte da verdade do progresso.
@@ -217,6 +285,6 @@ Auditor re-testa e fecha
 1. ~~Política de cadastro~~ — decidido: só o dono cria contas (sem cadastro público).
 2. Tamanho aproximado da biblioteca (nº de itens e GB)?
 3. Mangá: preferência padrão de leitura (direita→esquerda ou webtoon)?
-4. Metadados automáticos (capas/sinopse via ComicInfo.xml, AniList, OpenLibrary) já no MVP ou depois?
+4. ~~Metadados automáticos~~ — decidido (2026-11-20, ADR 0015): capas e sinopse de fontes públicas por lista fixa de hosts. `ComicInfo.xml` continua ignorado; OpenLibrary não entrou.
 5. Idioma da interface (pt-BR apenas?).
 6. Qual IA fará a auditoria e em que ambiente ela roda os testes (local, staging)?

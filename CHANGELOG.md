@@ -5,6 +5,53 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 ## [Não lançado]
 
 ### Added
+- Backend: agrupamento em séries por pasta (`backend/app/domain/series.py`, `services/scan.py`): série = pasta pai; capítulo com `chapter_number`; ordem natural; `sort_title` com dígitos preenchidos (ADR 0014).
+- Backend: migrações `0005` (tabela `series`, `items.series_id` e `items.chapter_number`, com backfill), `0006` (`source_url`, `metadata_checked_at`, `title_original`) e `0007` (`description_origin`, `description_source_name`, `description_source_url`); sem recriar tabelas.
+- Backend: API de séries em `/api/v1/series`: `GET` (lista com `q`, `limit`, `offset`), `GET /{id}` (capítulos, progresso do usuário e campo `continue`), `GET /{id}/cover`.
+- Backend: metadados de fontes públicas (ADR 0015): `services/metadata_service.py`, `services/enrich_runner.py`, `domain/metadata.py`, providers MangaDex e AniList (obra), Wikipédia pt e Google Livros (só descrição, casamento forte) e tradução MyMemory (último recurso, marcada como `translated`).
+- Backend: `adapters/http/safe_gateway.py` é a única saída de rede do app: https, porta 443, lista fixa de 7 hosts, sem redirecionamento, IP público verificado, limites de tamanho e de tempo.
+- Backend: capas em `DATA_DIR/covers`, nome só pelo UUID da série (ADR 0016): `adapters/storage/cover_store.py`.
+- Backend: API de gestão de metadados (admin): `POST /api/v1/library/enrich` (202, em segundo plano, `force`), `GET /api/v1/library/enrich/status`, `GET /api/v1/series/{id}/metadata/candidates` (10 buscas/min por usuário), `POST .../metadata/select`, `PUT` e `DELETE .../metadata`.
+- Backend: CLI `enrich` (`--series <uuid>`, `--force`).
+- Backend: variáveis `METADATA_ENABLED`, `METADATA_PROVIDERS`, `METADATA_TRANSLATE_ENABLED`, `METADATA_LANGUAGES`, `METADATA_HTTP_TIMEOUT_SECONDS`, `METADATA_MAX_PER_RUN` e `DATA_DIR`.
+- Infra: `ENV DATA_DIR=/data` na imagem; compose repassa as variáveis `METADATA_*` e `DATA_DIR`.
+- Frontend: tela de série em `/serie/:id` (`features/series`): capítulos com busca por número, descrição com origem e atribuição, "continuar" e painel de metadados para admin (busca, escolher fonte, editar texto, remover).
+- Frontend: leitor de mangá mostra próximo e anterior capítulo no fim do capítulo (`features/reader-manga/components/ChapterEnd.tsx`); `?serie=` no caminho do leitor.
+- Frontend: botão "Atualizar metadados" na biblioteca, só para admin (`features/library/components/EnrichControl.tsx`).
+- Frontend: a biblioteca lista séries (`SeriesCard`) em vez de itens.
+- Docs: ADRs `0014` (agrupamento em séries por pasta), `0015` (metadados de fontes públicas, com autorização do dono de 2026-11-20) e `0016` (estratégia de capas).
+- Docs: `docs/history/2026-11-21-series-e-metadados.md`.
+- Docs: `docs/DEPLOY.md` ganha a seção de falha de DNS no build (`SSL: UNEXPECTED_EOF_WHILE_READING`).
+- Testes: `test_reg_020` (capítulos em ordem numérica), `test_reg_021` (edição manual vence enriquecimento em andamento), `test_reg_022` (obra do MangaDex não perdida por edições), `test_reg_023` (espaço após ponto final na tradução); suítes de séries, metadados, `SafeGateway`, capas e API de gestão (ver `docs/maps/TEST_MAP.md`).
+- Backend: API de progresso de leitura em `/api/v1/progress` (`PUT`, `GET` e `DELETE /{item_id}`; `GET /continue` com limite padrão 10 e máximo 50); `percent`, `finished` e `updated_at` calculados no servidor (ADR 0013).
+- Backend: API de preferências em `/api/v1/me/preferences` (`GET` e `PUT` do objeto completo: tema e sentido de leitura).
+- Backend: migração `0004` (tabela `reading_progress` e `users.reading_direction`, por `ALTER ADD COLUMN` para não apagar sessões; reversível).
+- Backend: serve o frontend (`FRONTEND_DIST_DIR`, `backend/app/api/spa.py`): fallback de SPA fora de `/api`, cache por tipo (`assets/*` imutável; shell `no-cache`) e `Range` nos arquivos estáticos (ADR 0012; resolve M5).
+- Backend: `backend/app/api/ids.py` (validação de UUID canônico compartilhada pelas rotas).
+- Infra: imagem em 3 estágios (frontend, instalação do backend, runtime), `infra/entrypoint.sh` (valida `SECRET_KEY` e `FORWARDED_ALLOW_IPS`, aplica migrações e sobe o uvicorn), `infra/gen_constraints.sh` e `infra/constraints.txt` (gerados em `python:3.12.8-slim`).
+- Infra: compose com sub-rede fixa (`NETWORK_SUBNET`), `stop_grace_period`, `pids_limit`, `mem_limit` e `restart`.
+- Infra: `.dockerignore` e `.env.example` atualizados; guia de operação em `docs/DEPLOY.md`.
+- Frontend: telas de login (`/login`), biblioteca com "Continuar lendo" (`/`), leitor de mangá em três modos RTL, LTR e vertical (`/ler/:itemId`) e ajustes (`/ajustes`: tema, sentido de leitura, troca de senha e sair).
+- Frontend: `shared/session`, `shared/preferences`, `shared/progress`, `shared/items` e `shared/hooks`; `ProtectedImage` e `useImageRecovery`; `progress-saver` com debounce, envio em série e `keepalive` ao ocultar a página.
+- Frontend: `RequireAuth` com 4 estados (`loading`, `error`, `anonymous`, `authenticated`).
+- Scripts: marcador `secret-scan:allow` (na mesma linha, só para valor fictício de teste) em `check.ps1`, `check.sh` e `gitleaks.toml`.
+- Testes: `test_reg_019`; suítes de progresso, preferências, SPA, arquivos Docker e frontend (15 arquivos de teste).
+- ADRs `0012` (backend serve o frontend) e `0013` (progresso e preferências no servidor).
+- Entrada de histórico: `docs/history/2026-11-20-mvp-usavel.md`.
+- Backend, Fase 1 concluída: autenticação em `/api/v1/auth` (`csrf`, `login`, `refresh`, `logout`, `me`, `change-password`), com cookies `access_token`, `refresh_token` e `csrf_token` (ADR 0008).
+- Backend: API de biblioteca em `/api/v1/items` (lista com `type`, `q`, `limit`, `offset`; detalhe; página e capa com ETag/304) e `/api/v1/library` (`POST /scan` em segundo plano, `GET /scan/status`; só admin).
+- Backend: persistência de `Item` (migração `0002`); `0003` remove dois índices sem uso.
+- Backend: proteção de login por par (IP, conta), por conta em todos os IPs e por IP, com reserva atômica antes do hash (ADR 0009).
+- Backend: CSRF no servidor (cookie assinado, cabeçalho e checagem de origem), CORS por lista exata, rate limit por IP em memória, limite de corpo (413) e `Cache-Control: no-store` em `/api`.
+- Backend: exceção de cache privado de 1 h para página e capa autenticadas (ADR 0010).
+- Backend: limites de concorrência com 503 e `Retry-After` (Argon2 com 2 slots; leitura de páginas com 4).
+- Backend: CLI `scan` (varre `LIBRARY_PATH`) e `purge` (tentativas, famílias mortas e auditoria antiga).
+- Backend: `Settings` de sessão, login, rate limit, extratores, `MAX_BODY_BYTES`, `AUDIT_RETENTION_DAYS`, `MIGRATIONS_DIR`, `REFRESH_REUSE_GRACE_SECONDS`, `SESSION_ABSOLUTE_TTL_SECONDS`, `LOGIN_MAX_FAILURES_ACCOUNT_ALL_IPS` e `LOGIN_TRUSTED_IP_WINDOW_SECONDS`.
+- Infra: `UVICORN_LIMIT_CONCURRENCY`, `UVICORN_TIMEOUT_KEEP_ALIVE` e `UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN`.
+- Testes: regressões `test_reg_002` a `test_reg_018` (sem `014`, reservado ao FIND-2026-009) e suítes de segurança para sessão, CSRF, lockout, cookies, cache, limites e itens. Contagem por arquivo em `docs/maps/TEST_MAP.md`.
+- ADRs `0008` (modelo de autenticação e sessão), `0009` (modelo de bloqueio de login), `0010` (exceção de cache para imagens autenticadas, substitui o ADR 0006 só nesse ponto) e `0011` (`FORWARDED_ALLOW_IPS` obrigatória).
+- Backend: `Settings` valida os limites de login em conjunto e recusa subir se um IP sozinho puder bloquear a conta para todos (`max_failures_from_one_address`, ADR 0009).
+- Entrada de histórico: `docs/history/2026-11-19-fase-1.md`.
 - `docs/PLANO.md`: stack, arquitetura, requisitos, segurança, modelo de dados, API e roteiro por fases.
 - ADRs `0001` (arquitetura hexagonal e frontend por feature), `0002` (segurança no app), `0003` (PWA para iOS), `0004` (dependency-cruiser e versões travadas), `0005` (padrões fechados na verificação e na exposição) e `0006` (cabeçalhos do middleware sobrepõem a rota).
 - Backend: teste de regressão `test_reg_001_secret_key_not_in_error` (REG-001) e `backend/tests/AGENTS.md` (regras de teste).
@@ -24,8 +71,34 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 - `scripts/check.ps1` e `scripts/check.sh`: verificação única (lint, tipos, testes, arquitetura, auditoria de dependências e scan de segredos), com `scripts/README.md` e `scripts/gitleaks.toml`.
 - Mapas em `docs/maps/`: CODEMAP, ARCHITECTURE, DATAMODEL, API, ROUTES, SECURITY_MAP, TEST_MAP.
 - Entradas de histórico: `docs/history/2026-11-19-fase-0-scaffold.md`, `docs/history/2026-11-19-planejamento-e-fase-0.md` e `docs/history/2026-11-19-correcoes-revisao-fase-0.md`.
+- Fase 1A (banco e usuários): `backend/app/domain/user.py` e `password_policy.py`; `UserService` (criar, redefinir senha, desativar, listar); ports `UserRepository`, `PasswordHasher`, `AuditLog`, `Clock`; adaptadores SQLAlchemy 2.1 com SQLite em WAL, Alembic 1.20 e migração `0001` (`users`, `refresh_tokens`, `login_attempts`, `audit_log`); Argon2id (`argon2-cffi` 25.1); `backend/app/composition.py`; CLI admin `python -m app.cli` (`migrate`, `create-user [--admin]`, `reset-password`, `deactivate-user`, `list-users`), com senha só por prompt.
+- Fase 1B (biblioteca, núcleo sem API): `backend/app/domain/{errors,item,library}.py`; ports `StorageBackend`, `Extractor`, `ItemRepository`; serviços de scan incremental (size+mtime, erro por arquivo), páginas e hash de conteúdo; `LocalStorage`; extratores CBZ e pasta de imagens, com limites e validação por magic bytes. `ComicInfo.xml` é ignorado. CBR, EPUB e PDF ficam para depois.
+- Testes das fases 1A e 1B: unidade, integração, segurança e arquitetura (lista por arquivo em `docs/maps/TEST_MAP.md`).
+- ADR `0007` (usuários por username, SQLite em WAL, Argon2id e composição única).
+- Entrada de histórico: `docs/history/2026-11-19-fase-1a-1b.md`.
 
 ### Changed
+- Backend: `GET /api/v1/items` deixa de ser a lista da biblioteca; a biblioteca usa `/api/v1/series` (sem consumidor de frontend para a lista de itens).
+- Backend: `services/scan.py` decide série e número de cada entrada (ADR 0014); a ordem da lista de itens continua `lower(title)`.
+- Backend: tradução passa por `fix_missing_sentence_space` (`domain/metadata.py`) antes de ser devolvida (`adapters/metadata/mymemory.py`).
+- Backend: rate limit estrito só em `login`, `refresh`, `logout` e `change-password`; `me` e `csrf` contam só no limite global (`test_reg_019`).
+- Backend: ports passam a 13 (`ProgressRepository` e `PreferencesRepository`, com adaptadores SQLAlchemy).
+- Backend: CSRF e rate limit valem só em `/api`; a SPA não consome esses limites.
+- Infra: `ALLOWED_ORIGINS` opcional (vazia = mesma origem, já que o app serve o frontend); `FRONTEND_DIST_DIR=/app/static` na imagem; `ENTRYPOINT` valida variáveis, migra e sobe o uvicorn. `FORWARDED_ALLOW_IPS` continua obrigatória (ADR 0011).
+- Frontend: `HomePage` e `useHealth` removidos; `/` passa a ser a biblioteca.
+- Frontend: tema salvo no servidor (antes só em memória); `ThemeProvider` mantém o estado local.
+- Frontend: `api-client` com `keepalive`, refresh compartilhado entre chamadas e abas (Web Locks) e retry de CSRF.
+- Docs: mapas (`CODEMAP`, `ARCHITECTURE`, `DATAMODEL`, `API`, `ROUTES`, `SECURITY_MAP`, `TEST_MAP`), `backend/AGENTS.md`, `frontend/AGENTS.md`, `backend/tests/AGENTS.md`, `docs/PLANO.md` (estado das Fases 2 e 3) e `README.md`.
+- Backend: contratos do import-linter passam a 8 (`app.main` e `app.cli` só via composição; `app.api` sem composição nem adapters, exceto `api.deps`).
+- Backend: dependências de runtime com versão fixa (`==`) em `pyproject.toml` (fastapi, uvicorn, pydantic-settings, PyJWT incluídos). Lockfile com hashes continua pendente.
+- Backend: `redirect_slashes=False` (barra final não redireciona).
+- Backend: o `Container` (serviços) vive em `app.state` e é construído sob trava, uma vez por processo.
+- Infra: `FORWARDED_ALLOW_IPS` obrigatória no compose (`:?`) e no `CMD` da imagem, sem padrão; `ENV FORWARDED_ALLOW_IPS` removido do Dockerfile (ADR 0011). Imagem define `MIGRATIONS_DIR=/app/migrations`.
+- Backend: contratos do import-linter de 6 para 7 (`app.cli` só alcança adapters via `app.composition`; `app.services` e `app.api` não importam composição, exceto `api.deps`).
+- Backend: `app/api/deps.py` ganha `get_user_service()`, que usa `app/composition.py`.
+- Backend: `Settings` ganha `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_SECONDS` e os limites de login (`LOGIN_MAX_FAILURES_ACCOUNT`, `LOGIN_MAX_FAILURES_IP`, `LOGIN_FAILURE_WINDOW_SECONDS`, `LOGIN_LOCKOUT_SECONDS`, `LOGIN_LOCKOUT_MAX_SECONDS`), usados desde a autenticação.
+- Infra: `infra/Dockerfile` copia `backend/migrations`; compose define `DATABASE_URL=sqlite:////data/app.db` no volume `app-data`.
+- Docs: `backend/AGENTS.md`, `infra/AGENTS.md` e `docs/PLANO.md` (§4 e estado da Fase 1).
 - Arquitetura: MVC adaptado substituído por Hexagonal (Ports & Adapters) leve no backend e organização por feature no frontend (ADR 0001).
 - Backend: contratos do import-linter reforçados de 5 para 6; `domain` proíbe pydantic, starlette e httpx; `core` coberto por contrato; `api.deps` aceita `app.adapters.**`.
 - Backend: `TRUSTED_PROXY_COUNT` removido (`Settings`, compose, `.env.example`). Única fonte do IP real: `FORWARDED_ALLOW_IPS` (uvicorn).
@@ -43,6 +116,24 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 - Docs: `API.md` é manual (OpenAPI desligado); teste de módulo fora do CODEMAP marcado como planejado.
 
 ### Fixed
+- Capítulos de uma série liam como texto: "Capitulo - 10" vinha antes de "Capitulo - 2" (`test_reg_020`).
+- Enriquecimento automático sobrescrevia uma edição manual feita enquanto ele rodava: a escrita agora confere o estado atual (`test_reg_021`).
+- Obra da biblioteca real perdida: o MangaDex respondia primeiro com edições ("Book Version", "Doujinshi") e a obra era descartada (`test_reg_022`).
+- Tradução do MyMemory colava frases ("...Mas"): inserido espaço após ponto final quando seguro (`test_reg_023`; abreviações como `Sr.Silva` recebem espaço).
+- Leituras de sessão (`/auth/me`, `/auth/csrf`) esgotavam o balde de limite do login; agora só o login, refresh, logout e troca de senha usam o balde estrito (`test_reg_019`).
+- Auditoria 2026-11-19 (`docs/security/`): 12 findings (1 alto, 2 médios, 7 baixos, 2 informativos). Todos com status `fixed`, exceto FIND-2026-009 (`open`, decisão do dono). Nenhum `verified`; reverificação é do auditor.
+  - FIND-2026-001 (alto): padrão de `FORWARDED_ALLOW_IPS` que não casava com a rede do compose (ver ADR 0011).
+  - FIND-2026-002: flood de login esgotava as threads da API; hasher com fila limitada e 503 (`test_reg_007`).
+  - FIND-2026-003: CBZ relia todas as entradas a cada página; índice em cache LRU e gate de leitura (`test_reg_008`).
+  - FIND-2026-004: corrida no lockout; falha reservada antes do hash (`test_reg_009`).
+  - FIND-2026-005: dois refresh simultâneos derrubavam a sessão; janela de 10 s (`test_reg_010`).
+  - FIND-2026-006: `audit_log` inflado por tentativas bloqueadas; dedupe por IP e purga independente de login (`test_reg_011`).
+  - FIND-2026-007: política de senha sem username contido e sem padrões de repetição e sequência; denylist grande não feita (`test_reg_012`).
+  - FIND-2026-008: redirect de barra final refletia `Host`; `redirect_slashes=False` (`test_reg_013`).
+  - FIND-2026-010 (parcial): `--no-server-header`, limites do uvicorn, dependências com `==`, `Origin` repetido → 403 (`test_reg_015`). Pendentes: itens 4, 6, 7, 8, 9, 10, 11, 12, 13.
+  - FIND-2026-011: `page_count` de pasta contava arquivo falso com extensão de imagem (`test_reg_016`).
+  - FIND-2026-012: scan de raiz vazia ou ilegível marcava todos os itens como ausentes (`test_reg_017`).
+- Backend: escritas de usuário (rehash no login, troca de senha) não desfazem desativação ou reset feitos em paralelo (`test_reg_018`).
 - Teste de arquitetura não executava nada e sempre passava. Agora roda import-linter e tem casos negativos por contrato.
 - `check.sh` dava OK sem executar etapas.
 - Código de saída e resumo escondiam etapas não executadas.
@@ -57,6 +148,34 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 - `SECRET_KEY` inválida aparecia no erro de validação (log): `hide_input_in_errors=True` (REG-001, achado M-1).
 - `SECRET_KEY` aceitava bloco repetido e chaves com 8 caracteres distintos; agora exige 12 distintos e rejeita bloco repetido e espaços nas pontas.
 ### Security
+- Saída de rede para metadados (ADR 0015): `SafeGateway` com lista fixa de 7 hosts, https, sem redirecionamento, IP público verificado e conexão fixada a ele, User-Agent genérico, sem cookies. Só título limpo e sinopse pública saem; `METADATA_ENABLED=false` desliga tudo.
+- Capas: nome de arquivo só pelo UUID gerado no servidor; escrita por arquivo temporário e renomeação; servidas pelo app, CSP `img-src 'self'` preservada (ADR 0016).
+- Descrições vindas da rede são sanitizadas (tags, scripts, markdown e controles removidos) e exibidas como texto puro; links só https.
+- Gestão de metadados é admin-only; buscas ao vivo limitadas a 10 por minuto por usuário.
+- CSP explícita (ADR 0012): `default-src 'self'` com `script-src`, `style-src`, `img-src`, `connect-src`, `worker-src`, `manifest-src`, `font-src`, `object-src 'none'`, `frame-ancestors 'none'`, `base-uri 'self'` e `form-action 'self'`; sem `unsafe-inline` nem `unsafe-eval`. ADR 0006 não foi alterado.
+- Servir arquivos: GET e HEAD apenas; caminhos com `..`, dotfile, `\`, `:` ou NUL recusados; symlink não seguido; `/api/**` desconhecido nunca devolve `index.html`.
+- Progresso e preferências: toda consulta filtra pelo `user_id` do token; cliente não envia `percent`, `finished` nem data (`extra=forbid`); respostas `no-store`.
+- Docker: usuário não-root (uid 10001), sistema de arquivos somente leitura, `cap_drop: ALL`, `no-new-privileges`, porta em loopback por padrão, `.dockerignore` sem `.env*`.
+- Frontend: nenhum `localStorage` ou `sessionStorage`; `safeRedirect` aceita só caminhos internos; service worker sem cache de `/api` e com `skipWaiting` desligado.
+- Sessão: access JWT HS256 de 15 min validado no banco a cada requisição; refresh opaco rotativo (só o SHA-256 no banco), em cookie `HttpOnly` com `Path=/api/v1/auth`; reuso revoga a família; troca de senha e desativação revogam na hora (ADR 0008).
+- Cookies `access_token` (Path=/api) e `refresh_token` (Path=/api/v1/auth) HttpOnly e `SameSite=Strict`; `csrf_token` legível por JS, `SameSite=Strict`; `Secure` por `COOKIE_SECURE`; tokens nunca no corpo.
+- CSRF no servidor: cookie assinado com HMAC (subchave HKDF), cabeçalho `X-CSRF-Token`, checagem de `Origin`, `Sec-Fetch-Site` e `Referer`; `Origin` repetido → 403.
+- CORS com lista exata (`ALLOWED_ORIGINS`); sem `*`; origem inválida recusada na configuração.
+- Lockout por par (IP, conta), por conta em todos os IPs (só para IPs sem login recente) e por IP; reserva atômica antes do hash; resposta idêntica para conta inexistente (ADR 0009).
+- Rate limit por IP em memória: `/api` 600/min (burst 200); `/api/v1/auth` 20/min (burst 10); 429 idêntico ao do bloqueio.
+- IP real só pelo uvicorn (`FORWARDED_ALLOW_IPS`, obrigatória, sem padrão); app ignora cabeçalhos de proxy (ADR 0011).
+- `Cache-Control: no-store` e `Pragma: no-cache` em todo `/api`; única exceção: página e capa autenticadas, `private, max-age=3600`, só GET 200/304 (ADR 0010).
+- Limite de corpo de 64 KiB (413), por cabeçalho e por bytes recebidos.
+- Concorrência limitada: Argon2 com 2 slots e leitura de páginas com 4; excedente recebe 503 + `Retry-After` sem registrar falha.
+- Auditoria de login (`login.success`, `login.failure`, `login.locked`, `token.refresh`, `token.reuse_detected`, `logout`, `password.changed`) sem senha, token, hash, IP nem username em claro.
+- Política de senha ampliada: username contido ou invertido recusado; repetição de bloco fraco e sequências de teclado e alfabeto recusadas.
+- `redirect_slashes=False`; `--no-server-header`; API sem OpenAPI/Swagger.
+- Senhas com Argon2id (t=3, 64 MiB, p=4) e hash dummy para usuário inexistente; política de 12 a 128 caracteres, diferente do username, fora de lista de senhas comuns e com ao menos 5 caracteres distintos.
+- Sem cadastro público: conta só pela CLI admin; senha por prompt sem eco, nunca em argumento nem na saída.
+- Username único sem distinção de caixa no banco; tabela de refresh tokens guarda só o hash SHA-256.
+- Auditoria de conta (`user.created`, `user.password_reset`, `user.deactivated`) sem senha nem hash.
+- `LocalStorage` é o único que resolve caminho da biblioteca: rejeita `..`, absoluto, nomes reservados do Windows e links reais (symlink e junction).
+- Extratores CBZ e pasta com limites de entradas, tamanho total, página e razão de compressão; rejeitam criptografado, symlink e nome inseguro (zip-slip).
 - Requisitos definidos: segurança dentro do app (anti brute force, CSRF, rate limit, cabeçalhos de segurança) e sem cadastro público (ADR 0002).
 - Cabeçalhos de segurança no backend: CSP sem `'unsafe-inline'` (fixada em teste), `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`.
 - `SECRET_KEY` obrigatória (mínimo 32 caracteres e 12 distintos, sem espaços nas pontas, sem bloco de até 8 caracteres repetido; sem default), validada no startup.
@@ -66,4 +185,4 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 - Verificação sem rede falha por padrão; `-AllowOffline` / `--allow-offline` vira aviso declarado (ADR 0005).
 - Frontend: ESLint bloqueia `fetch` fora do api-client, `localStorage`, `sessionStorage`, `eval` e `dangerouslySetInnerHTML`.
 - Service worker não faz cache de `/api`.
-- Pendentes: controles de login, CSRF no servidor, rate limit, CORS e `Cache-Control: no-store` em respostas autenticadas (ver `docs/maps/SECURITY_MAP.md`); quem serve o HTML da SPA (M5) aguarda decisão do dono.
+- Pendentes (ver `docs/maps/SECURITY_MAP.md`, seção Pendências): FIND-2026-009 aguarda decisão do dono; reverificação ao vivo do FIND-2026-002; itens do FIND-2026-010; lockfile com hashes (M8); rate limit por rota de páginas e scan.

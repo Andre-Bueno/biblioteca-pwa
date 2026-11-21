@@ -26,33 +26,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  min-height: 100dvh;
-  padding: calc(1.5rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right))
-    calc(1.5rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
+h1,
+h2 {
+  line-height: 1.2;
 }
 
 .muted {
   color: var(--color-text-muted);
   margin: 0;
-}
-
-.status {
-  margin: 0;
-  padding: 0.5rem 1rem;
-  border-radius: 999px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.status--ok {
-  color: var(--color-success);
-}
-
-.status--error {
-  color: var(--color-danger);
 }

@@ -1,4 +1,5 @@
-# Build context is the repository root (see infra/compose.example.yml).
+# Build context is the repository root (see infra/compose.example.yml). The frontend sources are part of
+# the context (built in stage 1 of infra/Dockerfile), minus node_modules, dist and tests.
 **/.venv
 **/venv
 **/node_modules
@@ -23,7 +24,11 @@
 .vscode
 docs
 scripts
-frontend
+frontend/node_modules
+frontend/dist
+frontend/tests
+frontend/test-results
+frontend/playwright-report
 backend/tests
 **/dist
 **/*.db
@@ -31,5 +36,8 @@ backend/tests
 **/*.sqlite3
 library
 data
-infra
-*.md
+# infra/: only what the image needs (constraints and entrypoint) goes in; the rest stays out.
+infra/*
+!infra/constraints.txt
+!infra/entrypoint.sh
+**/*.md

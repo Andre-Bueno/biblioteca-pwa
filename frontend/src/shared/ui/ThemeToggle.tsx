@@ -1,27 +1,29 @@
 import { useTheme, type ThemePreference } from '../theme';
-import './ui.css';
+import { SegmentedControl, type SegmentedOption } from './SegmentedControl';
 
-const OPTIONS: { value: ThemePreference; label: string }[] = [
+const OPTIONS: SegmentedOption<ThemePreference>[] = [
   { value: 'system', label: 'Sistema' },
   { value: 'light', label: 'Claro' },
   { value: 'dark', label: 'Escuro' },
 ];
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  /** Extra hook for callers that persist the choice (e.g. on the server). */
+  onSelect?: (preference: ThemePreference) => void;
+}
+
+export function ThemeToggle({ onSelect }: ThemeToggleProps) {
   const { preference, setPreference } = useTheme();
   return (
-    <div className="theme-toggle" role="group" aria-label="Tema">
-      {OPTIONS.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          className="theme-toggle__button"
-          aria-pressed={preference === option.value}
-          onClick={() => setPreference(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      label="Tema"
+      options={OPTIONS}
+      value={preference}
+      testId="theme-toggle"
+      onChange={(next) => {
+        setPreference(next);
+        onSelect?.(next);
+      }}
+    />
   );
 }
