@@ -1,10 +1,25 @@
 """Helpers shared by extractors: image validation by magic bytes, bounded page-index cache."""
 
 import posixpath
+import re
+import stat as stat_mod
 import threading
+import zipfile
+import zlib
 from collections import OrderedDict
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 from app.adapters.gate import BoundedGate
+from app.domain.errors import ArchiveLimitExceeded, CorruptArchive, UnsafePath, UnsupportedFormat
+from app.domain.library import ExtractorLimits
+from app.ports.storage import StorageBackend
+
+# Compression ratio only matters for entries big enough to be a bomb; tiny ones are
+# bounded by max_total_uncompressed_bytes anyway.
+RATIO_MIN_BYTES = 64 * 1024
+
+_DRIVE = re.compile(r"^[A-Za-z]:")
 
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"})
 HEADER_BYTES = 32
@@ -79,3 +94,72 @@ def sniff_image(head: bytes) -> str | None:
 
 def has_image_extension(name: str) -> bool:
     return posixpath.splitext(name)[1].lower() in IMAGE_EXTENSIONS
+
+
+@contextmanager
+def open_zip(
+    storage: StorageBackend, rel_path: str, validate: Callable[[zipfile.ZipFile], None]
+) -> Iterator[zipfile.ZipFile]:
+    """Open a library file as a validated zip. Library errors are mapped to domain errors; the
+    file handle and the zip are always closed."""
+    fh = storage.open(rel_path)
+    try:
+        try:
+            zf = zipfile.ZipFile(fh)
+        except (zipfile.BadZipFile, EOFError, OSError, ValueError) as exc:
+            raise CorruptArchive from exc
+        try:
+            validate(zf)
+            yield zf
+        except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError) as exc:
+            raise CorruptArchive from exc
+        except RuntimeError as exc:  # zipfile signals encrypted/unsupported with this
+            raise UnsupportedFormat from exc
+        finally:
+            zf.close()
+    finally:
+        fh.close()
+
+
+def check_member_name(name: str) -> None:
+    """Zip-slip guard for an archive member name (raises UnsafePath)."""
+    if (
+        not name
+        or "\x00" in name
+        or "\\" in name
+        or name.startswith("/")
+        or _DRIVE.match(name)
+        or ".." in name.split("/")
+    ):
+        raise UnsafePath
+
+
+def validate_zip(
+    zf: zipfile.ZipFile, limits: ExtractorLimits, *, size_limited: Callable[[str], bool]
+) -> None:
+    """Shared zip safety checks: entry count, names, encryption, symlinks, total size, ratio.
+
+    A member for which `size_limited(name)` is true may not exceed `limits.max_page_bytes`.
+    """
+    infos = zf.infolist()
+    if len(infos) > limits.max_entries:
+        raise ArchiveLimitExceeded
+    total = 0
+    for info in infos:
+        check_member_name(info.filename)
+        if info.flag_bits & 0x1:
+            raise UnsupportedFormat  # encrypted
+        if info.create_system == 3 and stat_mod.S_ISLNK(info.external_attr >> 16):
+            raise UnsafePath  # symlink inside the archive
+        if info.is_dir():
+            continue
+        if info.file_size > limits.max_page_bytes and size_limited(info.filename):
+            raise ArchiveLimitExceeded
+        total += info.file_size
+        if total > limits.max_total_uncompressed_bytes:
+            raise ArchiveLimitExceeded
+        if info.file_size >= RATIO_MIN_BYTES and (
+            info.compress_size == 0
+            or info.file_size / info.compress_size > limits.max_compression_ratio
+        ):
+            raise ArchiveLimitExceeded

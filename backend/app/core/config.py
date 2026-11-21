@@ -1,10 +1,13 @@
+import ipaddress
 import re
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.domain.release import is_operator_network, valid_repository
 
 KNOWN_PROVIDERS = frozenset({"mangadex", "anilist", "wikipedia", "googlebooks"})
 MAX_LANGUAGES = 6
@@ -13,6 +16,8 @@ MIN_SECRET_LENGTH = 32
 MIN_SECRET_DISTINCT_CHARS = 12
 MAX_REPEATED_BLOCK = 8
 MAX_ORIGIN_LENGTH = 255
+MAX_WEBHOOK_URL_LENGTH = 2048
+MIN_WEBHOOK_SECRET_LENGTH = 32
 
 
 def _is_repeated_block(value: str) -> bool:
@@ -87,6 +92,21 @@ class Settings(BaseSettings):
     METADATA_LANGUAGES: str = "pt-br,pt,en"  # description language preference, best first
     METADATA_HTTP_TIMEOUT_SECONDS: int = Field(default=15, gt=0, le=60)  # whole request
     METADATA_MAX_PER_RUN: int = Field(default=25, gt=0, le=1000)  # series per enrichment run
+
+    # Version of the running image (build-arg of the release workflow). "dev" or anything that is
+    # not a semantic version switches the release check off (state "unknown", no network).
+    APP_VERSION: str = Field(default="dev", max_length=64)
+    # New-release notice for admins + approval by webhook. The app never touches Docker: it asks
+    # the operator's deploy agent (infra/deploy-hook) through a signed webhook. The webhook URL is
+    # configuration ONLY (no endpoint can change it); the secret never appears in logs or errors.
+    UPDATE_CHECK_ENABLED: bool = True
+    UPDATE_REPOSITORY: str = "Andre-Bueno/biblioteca-pwa"
+    UPDATE_CHECK_INTERVAL_HOURS: int = Field(default=6, ge=1, le=168)
+    UPDATE_WEBHOOK_URL: str | None = None
+    UPDATE_WEBHOOK_SECRET: SecretStr | None = None
+    # http is accepted only for loopback / private / CGNAT (Tailscale) destinations, checked after
+    # the name is resolved; https is always accepted.
+    UPDATE_WEBHOOK_ALLOW_HTTP: bool = False
 
     # Safety limits for archive/folder readers (see domain.library.ExtractorLimits).
     EXTRACTOR_MAX_ENTRIES: int = Field(default=10_000, gt=0)
@@ -169,6 +189,86 @@ class Settings(BaseSettings):
     @property
     def metadata_languages(self) -> tuple[str, ...]:
         return tuple(self.METADATA_LANGUAGES.split(","))
+
+    @field_validator("UPDATE_WEBHOOK_URL", "UPDATE_WEBHOOK_SECRET", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        # compose passes "" for an unset variable
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return value
+
+    @field_validator("UPDATE_REPOSITORY")
+    @classmethod
+    def _repository(cls, value: str) -> str:
+        if not valid_repository(value):
+            raise ValueError("UPDATE_REPOSITORY must look like owner/name")
+        return value
+
+    @field_validator("UPDATE_WEBHOOK_URL")
+    @classmethod
+    def _webhook_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        # Messages never include the URL (it may carry a path token).
+        if len(value) > MAX_WEBHOOK_URL_LENGTH or any(not 32 < ord(c) < 127 for c in value):
+            raise ValueError("UPDATE_WEBHOOK_URL must be a plain ASCII URL of at most 2048 chars")
+        try:
+            parts = urlsplit(value)
+            port = parts.port
+            valid = (
+                parts.scheme in ("http", "https")
+                and bool(parts.hostname)
+                and parts.username is None
+                and parts.password is None
+                and "@" not in parts.netloc
+                and "\\" not in value
+                and not parts.fragment
+                and port != 0
+            )
+        except ValueError:
+            valid = False
+        if not valid:
+            raise ValueError(
+                "UPDATE_WEBHOOK_URL must be http(s)://host[:port]/path without credentials"
+            )
+        return value
+
+    @field_validator("UPDATE_WEBHOOK_SECRET")
+    @classmethod
+    def _webhook_secret(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return None
+        secret = value.get_secret_value()
+        if len(secret) < MIN_WEBHOOK_SECRET_LENGTH:
+            raise ValueError(
+                f"UPDATE_WEBHOOK_SECRET must have at least {MIN_WEBHOOK_SECRET_LENGTH} characters"
+            )
+        if secret != secret.strip():
+            raise ValueError("UPDATE_WEBHOOK_SECRET must not have leading or trailing whitespace")
+        return value
+
+    @model_validator(mode="after")
+    def _webhook_consistent(self) -> "Settings":
+        if (self.UPDATE_WEBHOOK_URL is None) != (self.UPDATE_WEBHOOK_SECRET is None):
+            raise ValueError("UPDATE_WEBHOOK_URL and UPDATE_WEBHOOK_SECRET must be set together")
+        if self.UPDATE_WEBHOOK_URL is not None:
+            parts = urlsplit(self.UPDATE_WEBHOOK_URL)
+            if parts.scheme == "http":
+                if not self.UPDATE_WEBHOOK_ALLOW_HTTP:
+                    raise ValueError("UPDATE_WEBHOOK_URL must be https unless ALLOW_HTTP is set")
+                host = parts.hostname or ""
+                try:
+                    ipaddress.ip_address(host)
+                except ValueError:
+                    pass  # a name: its address is checked when the request is made
+                else:
+                    if not is_operator_network(host):
+                        raise ValueError(
+                            "UPDATE_WEBHOOK_URL over http must point to a loopback, private or "
+                            "CGNAT address"
+                        )
+        return self
 
     @field_validator("FRONTEND_DIST_DIR", mode="before")
     @classmethod

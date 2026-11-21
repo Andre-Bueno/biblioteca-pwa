@@ -137,6 +137,18 @@ if ($doFront) {
   }
 }
 
+# ---------------- Infra e CI (testes so com biblioteca padrao: sem rede, sem Docker) ----------------
+# Roda sempre (como o scan de segredos): receptor do webhook de atualizacao e script de notas da release.
+$infraPy = Join-Path $Root 'backend\.venv\Scripts\python.exe'
+if (-not (Test-Path $infraPy)) { $infraPy = (Get-Command python -ErrorAction SilentlyContinue).Source }
+if (-not $infraPy) {
+  Add-Result 'infra: deploy-hook tests' 'FALHA' 0 'python nao encontrado'
+  Add-Result 'ci: release_notes tests' 'FALHA' 0 'python nao encontrado'
+} else {
+  Invoke-Step 'infra: deploy-hook tests' { & $infraPy -I -m unittest discover -s infra/deploy-hook -p 'test_*.py' } $Root
+  Invoke-Step 'ci: release_notes tests' { & $infraPy -I -m unittest discover -s .github/scripts -p 'test_*.py' } $Root
+}
+
 # ---------------- Scan de segredos ----------------
 Write-Host ""
 Write-Host "=== scan de segredos ===" -ForegroundColor Cyan

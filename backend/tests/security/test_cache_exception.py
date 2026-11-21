@@ -175,7 +175,9 @@ def test_real_app_only_page_and_cover_routes_are_privately_cacheable(
     item = env.container.item_repository.get_by_rel_path("Vol 1.cbz")
     assert item is not None
     assert item.series_id is not None
-    values = {"item_id": item.id, "n": "0", "series_id": item.series_id}
+    # The book routes answer 404 for this manga item, so they never qualify as cacheable here
+    # (the happy path of the book routes is in `test_book_api_headers.py`).
+    values = {"item_id": item.id, "n": "0", "rid": "0", "series_id": item.series_id}
 
     # FastAPI >= 0.16x nests included routers: flatten them (their paths already carry prefixes).
     flat = [

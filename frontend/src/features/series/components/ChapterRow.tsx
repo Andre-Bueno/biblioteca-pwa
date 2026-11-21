@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { readerPath } from '../../../shared/items';
-import type { Chapter } from '../../../shared/series';
+import { isBookChapter, type Chapter } from '../../../shared/series';
 
 function percentOf(chapter: Chapter): number {
   const progress = chapter.progress;
@@ -29,6 +29,7 @@ export function ChapterRow({ chapter, seriesId, highlighted }: ChapterRowProps) 
   const status = chapterStatus(chapter);
   const percent = percentOf(chapter);
   const pages = chapter.page_count ?? 0;
+  const kind = isBookChapter(chapter) ? 'Livro' : pages === 1 ? '1 página' : `${pages} páginas`;
   return (
     <li id={`chapter-${chapter.id}`} className="chapter-list__item">
       <Link
@@ -39,7 +40,7 @@ export function ChapterRow({ chapter, seriesId, highlighted }: ChapterRowProps) 
       >
         <span className="chapter__title">{chapter.title}</span>
         <span className="chapter__meta">
-          {pages === 1 ? '1 página' : `${pages} páginas`} · {statusLabel(status)}
+          {kind} · {statusLabel(status)}
           {status === 'reading' ? ` (${Math.round(percent)}%)` : ''}
         </span>
         {status === 'reading' && (

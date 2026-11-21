@@ -32,9 +32,13 @@ Backend (`backend/.venv`; se faltar: `cd backend; python -m venv .venv; .venv\Sc
 
 Frontend (`npm ci` antes): `lint`, `typecheck`, `test`, `arch`, `format:check`, `build`, `npm audit --omit=dev` (obrigatorio, deve ficar limpo).
 
+Infra e CI (sem rede e sem Docker): `infra: deploy-hook tests` (`unittest` em `infra/deploy-hook`, o receptor do webhook) e `ci: release_notes tests` (`unittest` em `.github/scripts`, notas de release).
+
+O CI (`.github/workflows/ci.yml`) não chama estes scripts: repete as mesmas etapas em jobs próprios (backend, frontend, infra, gitleaks e build da imagem sem push). Por isso, verde local não substitui o CI, e o CI não substitui o `check` local.
+
 ## Scan de segredos
 
-Usa `gitleaks` se estiver no PATH, com `scripts/gitleaks.toml` (`--config`: estende as regras padrao e ignora `.venv`, `venv`, `node_modules`, `dist`, `.git`). Senao faz checagem **reduzida** por regex, sem diferenciar maiusculas de minusculas, igual em .ps1 e .sh:
+Usa `gitleaks` se estiver no PATH (no CI ele sempre roda, com versão fixada e checksum), com `scripts/gitleaks.toml` (`--config`: estende as regras padrao e ignora `.venv`, `venv`, `node_modules`, `dist`, `.git`). Senao faz checagem **reduzida** por regex, sem diferenciar maiusculas de minusculas, igual em .ps1 e .sh:
 
 - Padroes fortes: chave privada PEM, `AKIA...`, tokens GitHub (`gh[pousr]_`), Slack (`xox`), Google (`AIza`), Stripe live, JWT (tres segmentos `eyJ...`).
 - Padroes frouxos (ignoram valores placeholder claros: `changeme`, `your-...`, `example`, `xxx`, `<...>`, `${...}`, `os.environ`, `getenv`, `process.env`, `user:password@`): `SECRET_KEY=` com qualquer valor nao-espaco/aspas de 8+ caracteres, `password=`/`passwd=` com literal entre aspas, URL com credencial `://usuario:senha@`.

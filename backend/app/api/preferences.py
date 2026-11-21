@@ -29,7 +29,13 @@ def get_preferences(user: UserDep, service: ServiceDep) -> PreferencesOut:
 @router.put("", response_model=PreferencesOut)
 def put_preferences(body: PreferencesIn, user: UserDep, service: ServiceDep) -> PreferencesOut:
     try:
-        return PreferencesOut.from_domain(service.update(user.id, body.to_domain()))
+        saved = service.patch(
+            user.id,
+            body.to_domain(),
+            book_font_scale=body.book_font_scale,
+            book_theme=body.book_theme,
+        )
+        return PreferencesOut.from_domain(saved)
     except UserNotFoundError:
         raise HTTPException(status_code=401, detail="Not authenticated") from None
     except DataAccessError:

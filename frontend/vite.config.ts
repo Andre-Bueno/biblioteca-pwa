@@ -6,9 +6,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // A new worker waits (skipWaiting off) and takes over when the app is reopened, so an
-      // update never reloads the page under someone who is reading.
-      registerType: 'autoUpdate',
+      // A new worker waits (skipWaiting off) and the app only PROMPTS ("Nova versão do app
+      // disponível"): it never reloads the page under someone who is reading.
+      registerType: 'prompt',
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
         id: '/',

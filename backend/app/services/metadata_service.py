@@ -23,6 +23,7 @@ from dataclasses import dataclass, replace
 from datetime import timedelta
 
 from app.domain.errors import ExternalFetchError, InvalidMetadata, ItemNotFound, MetadataDisabled
+from app.domain.item import ItemType
 from app.domain.library import sanitize_title
 from app.domain.metadata import (
     MAX_QUERY_LENGTH,
@@ -171,9 +172,15 @@ class MetadataService:
         has_pt = any(pick_description(c.descriptions, self._pt) for c in accepted)
         return has_cover and has_pt
 
+    def _only_books(self, series: Series) -> bool:
+        chapters = self._series.list_chapters(series.id)
+        return bool(chapters) and all(c.type is ItemType.BOOK for c in chapters)
+
     def _enrich_one(self, series: Series, force: bool) -> str:
         if not self._eligible(series, force):
             return "skipped"
+        if self._only_books(series):
+            return "skipped"  # nothing leaves the server for a series of books; state stays `none`
         now = self._clock.now()
         answered = 0
         accepted: list[MetadataCandidate] = []

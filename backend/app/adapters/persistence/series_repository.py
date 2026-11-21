@@ -20,7 +20,7 @@ from app.adapters.persistence.models import ItemRow, ReadingProgressRow, SeriesR
 from app.domain.errors import DataAccessError
 from app.domain.item import Item
 from app.domain.metadata import MetadataUpdate
-from app.domain.series import Series, SeriesSummary, sort_title
+from app.domain.series import Series, SeriesSummary, series_kind, sort_title
 from app.ports.clock import Clock
 
 
@@ -110,7 +110,13 @@ class SqlAlchemySeriesRepository:
         self, user_id: str, query: str | None, offset: int, limit: int
     ) -> list[SeriesSummary]:
         stmt = (
-            select(SeriesRow, func.count(ItemRow.id), func.max(ItemRow.page_count))
+            select(
+                SeriesRow,
+                func.count(ItemRow.id),
+                func.max(ItemRow.page_count),
+                func.min(ItemRow.type),
+                func.max(ItemRow.type),
+            )
             .join(ItemRow, ItemRow.series_id == SeriesRow.id)
             .where(ItemRow.missing.is_(False))
         )
@@ -128,7 +134,7 @@ class SqlAlchemySeriesRepository:
         try:
             with self._session_factory() as session:
                 rows = session.execute(stmt).all()
-                ids = [series.id for series, _count, _pages in rows]
+                ids = [row[0].id for row in rows]
                 read, last = self._reading(session, user_id, ids)
                 return [
                     SeriesSummary(
@@ -137,8 +143,9 @@ class SqlAlchemySeriesRepository:
                         has_cover=(pages or 0) > 0,
                         read_chapters=read.get(series.id, 0),
                         last_item_id=last.get(series.id),
+                        kind=series_kind([lowest] if lowest == highest else [lowest, highest]),
                     )
-                    for series, count, pages in rows
+                    for series, count, pages, lowest, highest in rows
                 ]
         except SQLAlchemyError:
             raise DataAccessError("database error") from None
@@ -184,9 +191,15 @@ class SqlAlchemySeriesRepository:
     def list_for_enrichment(
         self, states: Sequence[str], not_found_before: datetime | None, limit: int
     ) -> list[Series]:
+        # A series made only of books is never looked up (external sources know manga, not the
+        # user's books): it needs at least one active non-book item.
         has_active = (
             select(ItemRow.id)
-            .where(ItemRow.series_id == SeriesRow.id, ItemRow.missing.is_(False))
+            .where(
+                ItemRow.series_id == SeriesRow.id,
+                ItemRow.missing.is_(False),
+                ItemRow.type != "book",
+            )
             .exists()
         )
         stmt = select(SeriesRow).where(SeriesRow.metadata_state.in_(list(states)), has_active)

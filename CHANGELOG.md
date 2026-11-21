@@ -5,11 +5,27 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 ## [Não lançado]
 
 ### Added
-- Backend: agrupamento em séries por pasta (`backend/app/domain/series.py`, `services/scan.py`): série = pasta pai; capítulo com `chapter_number`; ordem natural; `sort_title` com dígitos preenchidos (ADR 0014).
+- Backend: leitura de EPUB (`domain/book.py`, `ports/book_reader.py`, `services/book.py`, `api/books.py`, `adapters/extractors/epub.py` com `_epub_safe.py`, `_epub_html.py` e `_epub_css.py`): `GET /api/v1/items/{id}/book` (metadados e sumário), `/book/chapters/{n}` (HTML sanitizado; `theme` e `size`) e `/book/res/{rid}` (imagens). DRM recusado; fontes e SVG nunca servidos (ADR 0017, proposto).
+- Backend: migração `0008` (`users.book_font_scale`, 80 a 200, padrão 100; `users.book_theme`, auto, light, dark ou sepia, padrão auto), expostas em `GET` e `PUT /api/v1/me/preferences`.
+- Backend: progresso de livro com `locator = capítulo * 10000 + offset_bp` (`domain/progress.py`); concluído no último capítulo com offset ≥ 9000.
+- Backend: `kind` da série (manga, book, mixed; derivado) e `type` de cada capítulo (manga, book, pdf) em `series_schemas.py` (REG-027).
+- Backend: aviso e atualização por release (`domain/release.py`, `services/update_service.py`, `api/system.py`): `GET /api/v1/system/version` (usuário comum recebe só a versão e se há atualização; admin recebe o detalhe), `POST /api/v1/system/update/check` (admin; 3 por minuto) e `POST /api/v1/system/update` (admin; 202, 409, 502 ou 503). Consulta preguiçosa a `api.github.com` com ETag e cache de 6 h por padrão.
+- Backend: `adapters/http/webhook_notifier.py`: webhook assinado (HMAC-SHA256) para o receptor do host, única saída fora do `SafeGateway`; destino só por configuração (ADR 0018, proposto).
+- Backend: variáveis `APP_VERSION`, `UPDATE_CHECK_ENABLED`, `UPDATE_REPOSITORY`, `UPDATE_CHECK_INTERVAL_HOURS`, `UPDATE_WEBHOOK_URL`, `UPDATE_WEBHOOK_SECRET` e `UPDATE_WEBHOOK_ALLOW_HTTP`.
+- Frontend: leitor de EPUB em `/ler/:itemId` para livros (`features/reader-epub`): capítulo em `iframe sandbox="allow-same-origin"`, índice, ajustes de fonte e tema do livro, progresso pelo locator de livro.
+- Frontend: aviso de nova versão só para admin (`shared/system`, `app/AppUpdatePrompt`), verificação manual em Ajustes e versão do app em Ajustes.
+- Frontend: série de livros mostra "Livro" (sem contagem de páginas) e a contagem por tipo ("N livros", "N capítulos" ou "N itens").
+- Infra: `infra/deploy-hook/` (receptor de referência do webhook, roda no host) e `ARG APP_VERSION` no Dockerfile.
+- CI e release (`.github/`): `ci.yml` (push em `master` e pull request: backend, frontend, testes de infra, gitleaks, build da imagem sem push); `release.yml` (tag `vX.Y.Z`: validação e notas, verificação completa, publicação no GHCR com proveniência e SBOM, GitHub Release); `dependabot.yml`; `.github/scripts/release_notes.py`.
+- Docs: `SECURITY.md` (reporte privado pelo GitHub, escopo e versões suportadas).
+- Docs: ADRs `0017` (CSP e iframe do capítulo EPUB) e `0018` (oitavo host de release e webhook de atualização), ambos com status Proposto até confirmação do dono; índice em `docs/adr/README.md`.
+- Docs: `docs/history/2026-11-21-epub-aviso-atualizacao-ci.md`.
+- Testes: `test_reg_024` a `test_reg_027`; suítes de EPUB, livros, atualização, webhook, `SafeGateway` de release e `kind`; no frontend, `epub-locator`, `reader-epub`, `series-books`, `system-update` e `pwa-update`; receptor e notas de release no `infra-tests` do CI.
+- Agrupamento em séries por pasta (`backend/app/domain/series.py`, `services/scan.py`): série = pasta pai; capítulo com `chapter_number`; ordem natural; `sort_title` com dígitos preenchidos (ADR 0014).
 - Backend: migrações `0005` (tabela `series`, `items.series_id` e `items.chapter_number`, com backfill), `0006` (`source_url`, `metadata_checked_at`, `title_original`) e `0007` (`description_origin`, `description_source_name`, `description_source_url`); sem recriar tabelas.
 - Backend: API de séries em `/api/v1/series`: `GET` (lista com `q`, `limit`, `offset`), `GET /{id}` (capítulos, progresso do usuário e campo `continue`), `GET /{id}/cover`.
 - Backend: metadados de fontes públicas (ADR 0015): `services/metadata_service.py`, `services/enrich_runner.py`, `domain/metadata.py`, providers MangaDex e AniList (obra), Wikipédia pt e Google Livros (só descrição, casamento forte) e tradução MyMemory (último recurso, marcada como `translated`).
-- Backend: `adapters/http/safe_gateway.py` é a única saída de rede do app: https, porta 443, lista fixa de 7 hosts, sem redirecionamento, IP público verificado, limites de tamanho e de tempo.
+- Backend: `adapters/http/safe_gateway.py` é a única saída de rede do app: https, porta 443, lista fixa de 8 hosts (7 de metadados e `api.github.com` para a checagem de release, ADR 0018), sem redirecionamento, IP público verificado, limites de tamanho e de tempo.
 - Backend: capas em `DATA_DIR/covers`, nome só pelo UUID da série (ADR 0016): `adapters/storage/cover_store.py`.
 - Backend: API de gestão de metadados (admin): `POST /api/v1/library/enrich` (202, em segundo plano, `force`), `GET /api/v1/library/enrich/status`, `GET /api/v1/series/{id}/metadata/candidates` (10 buscas/min por usuário), `POST .../metadata/select`, `PUT` e `DELETE .../metadata`.
 - Backend: CLI `enrich` (`--series <uuid>`, `--force`).
@@ -78,6 +94,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 - Entrada de histórico: `docs/history/2026-11-19-fase-1a-1b.md`.
 
 ### Changed
+- Backend: `SafeGateway` passa de 7 para 8 hosts; o oitavo, `api.github.com`, só serve à consulta de `releases/latest` (ADR 0018, proposto).
+- Backend: enriquecimento de metadados não consulta séries de livro (REG-026).
+- Backend: `PUT /api/v1/me/preferences` aceita `book_font_scale` e `book_theme` opcionais e preserva os campos de livro (REG-025).
+- Frontend: service worker com `registerType: 'prompt'`: uma nova versão espera o usuário, e nada recarrega sozinho. "Recarregar" salva o progresso pendente antes (`flushAllProgress`). `skipWaiting` e `clientsClaim` continuam desligados.
+- Frontend: `useReaderNav.ts` sai de `features/reader-manga/hooks/` e vai para `shared/series/`; `isReadable` passa a aceitar livro (PDF continua "em breve").
+- Infra: compose repassa `APP_TAG` (imagem do GHCR) e as variáveis `UPDATE_*`; `APP_VERSION` vem do build.
+- Docs: mapas (`CODEMAP`, `API`, `SECURITY_MAP`, `TEST_MAP`, `ROUTES`, `ARCHITECTURE`, `DATAMODEL`), `AGENTS.md` (raiz, regra 7; backend, adapters, tests, frontend, infra), `scripts/README.md`, `README.md`, `docs/PLANO.md` (status e EPUB), `docs/DEPLOY.md` (atualizações por release e webhook reescritos; variáveis `UPDATE_*`; saída para `api.github.com`).
 - Backend: `GET /api/v1/items` deixa de ser a lista da biblioteca; a biblioteca usa `/api/v1/series` (sem consumidor de frontend para a lista de itens).
 - Backend: `services/scan.py` decide série e número de cada entrada (ADR 0014); a ordem da lista de itens continua `lower(title)`.
 - Backend: tradução passa por `fix_missing_sentence_space` (`domain/metadata.py`) antes de ser devolvida (`adapters/metadata/mymemory.py`).
@@ -148,7 +171,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 - `SECRET_KEY` inválida aparecia no erro de validação (log): `hide_input_in_errors=True` (REG-001, achado M-1).
 - `SECRET_KEY` aceitava bloco repetido e chaves com 8 caracteres distintos; agora exige 12 distintos e rejeita bloco repetido e espaços nas pontas.
 ### Security
-- Saída de rede para metadados (ADR 0015): `SafeGateway` com lista fixa de 7 hosts, https, sem redirecionamento, IP público verificado e conexão fixada a ele, User-Agent genérico, sem cookies. Só título limpo e sinopse pública saem; `METADATA_ENABLED=false` desliga tudo.
+- Saída de rede: oitavo host `api.github.com` para a checagem de release, e webhook assinado (HMAC-SHA256, sem redirecionamento, destino só por configuração, http só em rede do operador) como única saída fora do `SafeGateway` (ADR 0018, proposto; confirmação do dono pendente).
+- EPUB: capítulo sanitizado por allowlist; CSP própria só para a rota do capítulo, pelo middleware; frame sem `allow-scripts`; DRM recusado; fontes e SVG nunca servidos; progresso de livro por `user_id` (ADR 0017, proposto).
+- Atualização: só admin; tag exata da última release; `html_url` aceito só do próprio repositório no GitHub; notas em texto puro; link só https; app nunca acessa o Docker.
+- Frontend: service worker sem atualização automática (`prompt`); aviso de versão nunca mostrado a usuário comum.
+- CI e release: actions fixadas por SHA; gitleaks com checksum verificado; Dependabot semanal; imagem publicada com proveniência e SBOM.
+- Saída de rede para metadados (ADR 0015): `SafeGateway` com lista fixa de 8 hosts (ADR 0015, ampliada pelo ADR 0018), https, sem redirecionamento, IP público verificado e conexão fixada a ele, User-Agent genérico, sem cookies. Só título limpo e sinopse pública saem; `METADATA_ENABLED=false` desliga tudo.
 - Capas: nome de arquivo só pelo UUID gerado no servidor; escrita por arquivo temporário e renomeação; servidas pelo app, CSP `img-src 'self'` preservada (ADR 0016).
 - Descrições vindas da rede são sanitizadas (tags, scripts, markdown e controles removidos) e exibidas como texto puro; links só https.
 - Gestão de metadados é admin-only; buscas ao vivo limitadas a 10 por minuto por usuário.

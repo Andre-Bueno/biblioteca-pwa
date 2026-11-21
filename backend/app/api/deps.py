@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.domain.auth import NotAuthenticatedError
 from app.domain.errors import LibraryUnavailable
 from app.domain.user import Role, User
+from app.ports.book_reader import BookReader
 from app.ports.cover_store import CoverStore
 from app.ports.extractor import Extractor
 from app.ports.item_repository import ItemRepository
@@ -31,6 +32,7 @@ from app.services.preferences_service import PreferencesService
 from app.services.progress_service import ProgressService
 from app.services.scan_runner import ScanRunner
 from app.services.series_service import SeriesService
+from app.services.update_service import UpdateService
 from app.services.user_service import UserService
 
 ACCESS_COOKIE = "access_token"
@@ -108,6 +110,16 @@ def get_candidates_limiter(container: Annotated[Container, Depends(get_container
     return container.candidates_limiter
 
 
+def get_update_service(container: Annotated[Container, Depends(get_container)]) -> UpdateService:
+    return container.update_service
+
+
+def get_update_check_limiter(
+    container: Annotated[Container, Depends(get_container)],
+) -> RateLimiter:
+    return container.update_check_limiter
+
+
 def get_enrich_runner(container: Annotated[Container, Depends(get_container)]) -> EnrichRunner:
     return container.enrich_runner
 
@@ -117,6 +129,16 @@ def get_extractors(container: Annotated[Container, Depends(get_container)]) -> S
     when a page is requested, never an error at import or start-up."""
     try:
         return container.extractors
+    except LibraryUnavailable as exc:
+        raise library_error(exc) from None
+
+
+def get_book_readers(
+    container: Annotated[Container, Depends(get_container)],
+) -> Sequence[BookReader]:
+    """Book readers (EPUB). Same lazy library resolution as `get_extractors`."""
+    try:
+        return container.book_readers
     except LibraryUnavailable as exc:
         raise library_error(exc) from None
 

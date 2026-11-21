@@ -53,6 +53,16 @@ ENV MIGRATIONS_DIR=/app/migrations \
     DATA_DIR=/data \
     LIBRARY_PATH=/library
 
+# Release version, passed by the release workflow (--build-arg APP_VERSION=1.2.3). Declared late so
+# a different value only invalidates the layers below. The app and the update flow can read it.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+# Static OCI labels; the release workflow adds revision and created. No licence label on purpose.
+LABEL org.opencontainers.image.title="biblioteca-pwa" \
+      org.opencontainers.image.description="PWA to read manga (CBZ), books (EPUB) and PDF from a server library" \
+      org.opencontainers.image.source="https://github.com/Andre-Bueno/biblioteca-pwa" \
+      org.opencontainers.image.version=$APP_VERSION
+
 # SQLite database (WAL) lives here; mount a named volume. The library is mounted read-only
 # at /library by the compose file.
 VOLUME ["/data"]

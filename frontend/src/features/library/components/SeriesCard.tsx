@@ -1,11 +1,7 @@
 import { Link } from 'react-router-dom';
 import { seriesPath } from '../../../shared/items';
-import { seriesCoverUrl, type SeriesSummary } from '../../../shared/series';
+import { seriesCountLabel, seriesCoverUrl, type SeriesSummary } from '../../../shared/series';
 import { Cover } from '../../../shared/ui';
-
-export function chaptersLabel(count: number): string {
-  return count === 1 ? '1 capítulo' : `${count} capítulos`;
-}
 
 export function SeriesCard({
   series,
@@ -24,7 +20,7 @@ export function SeriesCard({
         title={series.title}
       />
       <span className="card__title">{series.title}</span>
-      <span className="card__meta">{chaptersLabel(total)}</span>
+      <span className="card__meta">{seriesCountLabel(total, series.kind)}</span>
       {total > 0 && (
         <>
           <progress

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { SegmentedControl, type SegmentedOption } from '../../../shared/ui';
-import type { ReaderNav } from '../hooks/useReaderNav';
+import type { ReaderNav } from '../../../shared/series';
 import type { ReaderState } from '../hooks/useReaderState';
 import type { ReaderMode } from '../navigation';
 

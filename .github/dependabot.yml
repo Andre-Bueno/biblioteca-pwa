@@ -1,0 +1,44 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    # Security updates stay as separate PRs; routine ones are grouped. Keep infra/constraints.txt in
+    # sync by hand (it is generated inside python:3.12.8-slim, see infra/gen_constraints.sh).
+    groups:
+      python-dev-tools:
+        dependency-type: development
+      python-runtime:
+        dependency-type: production
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm-dev:
+        dependency-type: development
+      npm-runtime:
+        dependency-type: production
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /infra
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(docker)"

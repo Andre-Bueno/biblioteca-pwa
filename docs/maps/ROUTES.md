@@ -7,15 +7,17 @@ Estado: 2026-11-21. Fonte: `frontend/src/app/routes.tsx`. Roteador: react-router
 | Caminho | Componente | Feature | Acesso | Observação |
 |---|---|---|---|---|
 | `/login` | `LoginPage` | `features/auth` | público | Se já autenticado, redireciona para `safeRedirect(state.from)` |
-| `/` | `LibraryPage` | `features/library` | protegida | "Continuar lendo", grade de séries (capas), busca com debounce, "carregar mais"; botão "Atualizar metadados" só para admin |
-| `/serie/:id` | `SeriesPage` | `features/series` | protegida | Capítulos em ordem natural, busca por número, descrição com origem e atribuição, "continuar"; painel de metadados só para admin (busca, escolher fonte, editar texto, remover). Capítulo sem série: não há rota própria |
-| `/ler/:itemId` | `MangaReaderPage` | `features/reader-manga` | protegida | Com `?serie=<id>`: próximo e anterior capítulo no fim do capítulo; "voltar" leva à série. Carrega item e progresso; retoma na página salva. Não mangá: "Este formato ainda não é suportado."; sem páginas: mensagem; 404: "Item não encontrado." |
-| `/ajustes` | `SettingsPage` | `features/settings` | protegida | Aparência (tema), sentido de leitura, troca de senha, sair |
+| `/` | `LibraryPage` | `features/library` | protegida | Aviso de nova versão (só admin); "Continuar lendo"; grade de séries (capas e contagem "N livros"/"N capítulos"/"N itens"); busca com debounce; "carregar mais"; botão "Atualizar metadados" só para admin |
+| `/serie/:id` | `SeriesPage` | `features/series` | protegida | Capítulos em ordem natural, busca por número, descrição com origem e atribuição, "continuar"; livros aparecem como "Livro" (sem contagem de páginas); painel de metadados só para admin (busca, escolher fonte, editar texto, remover). Capítulo sem série: não há rota própria |
+| `/ler/:itemId` | `ReaderRoute` → `MangaReaderPage` ou `EpubReaderPage` | `features/reader-manga`, `features/reader-epub` | protegida | `app/ReaderRoute.tsx` escolhe pelo tipo do item: `book` abre o leitor EPUB; demais, o leitor de mangá. Com `?serie=<id>`: próximo e anterior capítulo no fim; "voltar" leva à série. Mangá: retoma na página salva; "Este formato ainda não é suportado." para PDF; 404: "Item não encontrado." |
+| `/ajustes` | `SettingsPage` | `features/settings` | protegida | Versão do app; "Verificar atualizações" (só admin); aparência (tema); sentido de leitura; troca de senha; sair |
 | `*` | `Navigate` para `/` | app | — | Qualquer outro caminho |
 
 Grupo protegido: `RequireAuth` (`features/auth/components/RequireAuth.tsx`) envolve `/`, `/serie/:id`, `/ler/:itemId` e `/ajustes`.
 
-Links e texto nas telas de série: links externos só https (`safeHttpsUrl`); descrição e títulos de origem externa são texto puro. Capas usam URL same-origin (`/api/v1/series/{id}/cover`).
+Links e texto nas telas de série e de versão: links externos só https (`safeHttpsUrl`); descrição, notas de release e títulos de origem externa são texto puro. Capas usam URL same-origin (`/api/v1/series/{id}/cover`).
+
+Leitor EPUB: o capítulo vive num `<iframe sandbox="allow-same-origin">` (sem `allow-scripts`), servido por `/api/v1/items/{id}/book/chapters/{n}` (ADR 0017). O app lê só geometria de rolagem e `a[href]` do frame.
 
 ## Estados do RequireAuth
 
@@ -35,23 +37,39 @@ Links e texto nas telas de série: links externos só https (`safeHttpsUrl`); de
 | Refresh rejeitado (qualquer tela) | Estado `anonymous` e redireciona para `/login` |
 | Leitor com erro de imagem | Uma recuperação de sessão por janela (sem `/auth/me`); senão botão "Tentar novamente" na imagem |
 
+## Aviso de nova versão (admin)
+
+| Item | Comportamento |
+|---|---|
+| Quem vê | Só `role === 'admin'`. Usuário comum não recebe nada sobre releases (`GET /system/version` devolve só `current` e `update_available`) |
+| Onde | Aviso em `/` e em `/ajustes` (`UpdateNotice`) |
+| Consulta de versão | Ao abrir o app e no máximo a cada 30 min, com a aba visível (`VersionProvider`); falha silenciosa, sem repetição em laço |
+| Conteúdo | Versão atual e nova; notas em texto puro; link para a release só https do GitHub do repositório |
+| Atualizar agora | Confirmação antes; depois `POST /system/update` com a tag exata; sem webhook configurado, só a instrução manual e o link |
+| Acompanhamento | Consulta `/system/version` a cada 5 s, até 60 vezes (cerca de 5 min); para ao sair da tela; se o servidor disser que falhou, mostra a falha |
+| "Agora não" | Esconde até recarregar a página (também na outra tela) |
+| Verificação manual | "Verificar atualizações" em `/ajustes` (admin): uma chamada por vez; 429 bloqueia o botão pelo `Retry-After` |
+
 ## Service worker e PWA
 
 | Item | Valor |
 |---|---|
-| Registro | `frontend/src/app/registerServiceWorker.ts`, só em produção |
+| Registro | `frontend/src/app/registerServiceWorker.ts`, só em produção (`onNeedRefresh` → `shared/pwa`) |
+| Modo | `registerType: 'prompt'` (`vite.config.ts`): nova versão espera; nada recarrega sozinho |
+| Ativação | "Recarregar" no aviso (`AppUpdatePrompt`): antes faz `flushAllProgress` (progresso pendente salvo, com teto de ~2 s), depois ativa o worker e recarrega. Dentro do leitor, só um indicador compacto |
 | Precache | Só o app shell (vite-plugin-pwa) |
 | `navigateFallbackDenylist` | `/^\/api\//`: navegação para `/api` nunca cai em `index.html` |
 | `runtimeCaching` | `[]`: nenhuma resposta de API é cacheada |
-| Atualização | `skipWaiting: false`, `clientsClaim: false`: a nova versão espera a reabertura do app |
-| Estado verificado | Não registrado no navegador embutido de validação; instalação e offline não provados (ver `docs/history/2026-11-20-mvp-usavel.md`) |
+| Atualização | `skipWaiting: false`, `clientsClaim: false`: a ativação depende do usuário |
+| Estado verificado | Registro real no navegador não provado (ver `docs/history/2026-11-20-mvp-usavel.md`); há testes de configuração e do aviso (`frontend/tests/unit/pwa-update.test.tsx`) |
 
 ## Planejado (PLANO §2; caminhos a definir)
 
 | Tela | Pasta prevista | Fase |
 |---|---|---|
-| Leitor EPUB | `features/reader-epub/` | 4 |
 | Leitor PDF | `features/reader-pdf/` | 4 |
 | Tela própria de progresso (se houver) | `features/progress/` | 4 ou depois |
 | Biblioteca com filtro por status (lendo, concluído): requisito do MVP ainda pendente | `features/library/` | 2 (pendente) |
 | Offline explícito | `shared/offline/` | 5 |
+
+Entregue em 2026-11-21: leitor EPUB (`features/reader-epub/`, ADR 0017, proposto).

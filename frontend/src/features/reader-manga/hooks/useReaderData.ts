@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError } from '../../../shared/api-client';
-import { getItem, type Item } from '../../../shared/items';
+import type { Item, ItemState } from '../../../shared/items';
 import { getProgress } from '../../../shared/progress';
 
 export type ReaderData =
@@ -16,33 +15,49 @@ export type ReaderData =
 
 interface Settled {
   key: string;
-  result: Exclude<ReaderData, { status: 'loading' }>;
+  result: { status: 'ready'; item: Item; savedLocator: number | null } | { status: 'error' };
 }
 
-/** Loads the item and the saved progress (404 = start at page 0) before the reader mounts. */
-export function useReaderData(itemId: string): { data: ReaderData; retry: () => void } {
+/**
+ * Combines the item (loaded by the route, which also picks manga or book) with the saved
+ * progress (404 = start at page 0) before the reader mounts.
+ */
+export function useReaderData(
+  itemState: ItemState,
+  retryItem: () => void,
+): { data: ReaderData; retry: () => void } {
   const [retryToken, setRetryToken] = useState(0);
   const [settled, setSettled] = useState<Settled | null>(null);
-  const key = `${itemId}:${retryToken}`;
+  const item = itemState.status === 'ready' ? itemState.item : null;
+  const key = item ? `${item.id}:${retryToken}` : '';
 
   useEffect(() => {
+    if (!item) return undefined;
     const controller = new AbortController();
-    Promise.all([getItem(itemId, controller.signal), getProgress(itemId, controller.signal)])
-      .then(([item, progress]) =>
+    getProgress(item.id, controller.signal)
+      .then((progress) => {
+        if (controller.signal.aborted) return;
         setSettled({
           key,
           result: { status: 'ready', item, savedLocator: progress ? progress.locator : null },
-        }),
-      )
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        const notFound = error instanceof ApiError && error.status === 404;
-        setSettled({ key, result: { status: notFound ? 'notfound' : 'error' } });
+        });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setSettled({ key, result: { status: 'error' } });
       });
     return () => controller.abort();
-  }, [key, itemId]);
+  }, [key, item]);
 
-  const retry = useCallback(() => setRetryToken((value) => value + 1), []);
-  const data: ReaderData = settled?.key === key ? settled.result : { status: 'loading' };
+  const retry = useCallback(() => {
+    setRetryToken((value) => value + 1);
+    retryItem();
+  }, [retryItem]);
+
+  let data: ReaderData = { status: 'loading' };
+  if (itemState.status === 'notfound' || itemState.status === 'error') {
+    data = { status: itemState.status };
+  } else if (item && settled?.key === key) {
+    data = settled.result;
+  }
   return { data, retry };
 }

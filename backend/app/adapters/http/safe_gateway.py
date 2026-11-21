@@ -9,7 +9,9 @@ Hard rules, none of them configurable at run time:
 - connect timeout 5 s, whole request 15 s, body read in chunks and cut at the size limit
   (JSON 1 MiB, image 5 MiB);
 - content type checked; images also by magic bytes and shape (never by name or URL);
-- one request at a time, at most 2 per second per host, `Retry-After` and backoff respected.
+- one request at a time, at most 2 per second per host, `Retry-After` and backoff respected;
+- `get_json_conditional` (release check, `api.github.com` only): `If-None-Match`, 304 and the
+  throttling statuses are returned to the caller; it waits at most 3 s for the gateway.
 
 Every failure is an `ExternalFetchError` carrying a fixed reason code; a message with a URL, host or
 body never leaves this module.
@@ -29,6 +31,7 @@ from urllib.parse import urlsplit
 
 from app.domain.errors import ExternalFetchError
 from app.domain.metadata import FetchedImage, sniff_image
+from app.domain.release import ConditionalJson
 
 ALLOWED_HOSTS = frozenset(
     {
@@ -39,8 +42,12 @@ ALLOWED_HOSTS = frozenset(
         "pt.wikipedia.org",
         "www.googleapis.com",
         "api.mymemory.translated.net",
+        "api.github.com",  # release check of the app itself (ADR of the update notice)
     }
 )
+RELEASE_HOST = "api.github.com"  # the only host `get_json_conditional` may talk to
+LOCK_WAIT = 3.0  # a request that cannot get the gateway in this time gives up
+CONDITIONAL_TIMEOUT = 8.0  # whole request of the release check
 POST_HOSTS = frozenset({"graphql.anilist.co"})  # GraphQL is POST-only; nothing else takes a body
 USER_AGENT = "BibliotecaPWA/1.0"
 CONNECT_TIMEOUT = 5.0
@@ -285,6 +292,9 @@ class SafeGateway:
         length = response.getheader("Content-Length")
         if length is not None and length.strip().isdigit() and int(length.strip()) > max_bytes:
             raise ExternalFetchError("too_large")
+        return self._read_body(response, max_bytes, deadline), declared
+
+    def _read_body(self, response: _Response, max_bytes: int, deadline: float) -> bytes:
         chunks: list[bytes] = []
         total = 0
         while True:
@@ -297,7 +307,89 @@ class SafeGateway:
             if total > max_bytes:
                 raise ExternalFetchError("too_large")  # cut: the rest is never read
             chunks.append(chunk)
-        return b"".join(chunks), declared
+        return b"".join(chunks)
+
+    # -- conditional GET (release check) ------------------------------------------------------
+
+    def get_json_conditional(self, url: str, etag: str | None) -> ConditionalJson:
+        host, target = self.check_url(url)
+        if host != RELEASE_HOST:
+            raise ExternalFetchError("host_not_allowed")
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/vnd.github+json",
+            "Accept-Encoding": "identity",
+            "Connection": "close",
+        }
+        if etag is not None and 0 < len(etag) <= 200 and all(32 <= ord(c) < 127 for c in etag):
+            headers["If-None-Match"] = etag
+        if not self._lock.acquire(timeout=LOCK_WAIT):
+            raise ExternalFetchError("busy")  # someone else is using the gateway: never queue
+        conn: _Connection | None = None
+        try:
+            self._pace(host)
+            deadline = self._clock() + min(self._total_timeout, CONDITIONAL_TIMEOUT)
+            conn = self._factory(host, CONNECT_TIMEOUT)
+            conn.request("GET", target, None, headers)
+            response = conn.getresponse()
+            return self._read_conditional(host, response, deadline)
+        except ExternalFetchError:
+            raise
+        except TimeoutError:
+            self._penalize(host, None)
+            raise ExternalFetchError("timeout") from None
+        except (OSError, http.client.HTTPException, ssl.SSLError, ValueError):
+            self._penalize(host, None)
+            raise ExternalFetchError("network") from None
+        finally:
+            if conn is not None:
+                with contextlib.suppress(OSError):
+                    conn.close()
+            self._lock.release()
+
+    def _read_conditional(self, host: str, response: _Response, deadline: float) -> ConditionalJson:
+        status = response.status
+        remaining = _int_header(response.getheader("X-RateLimit-Remaining"))
+        reset_at = _int_header(response.getheader("X-RateLimit-Reset"))
+        retry_after = _retry_after(response.getheader("Retry-After"))
+        etag = response.getheader("ETag")
+        if etag is not None and not (
+            0 < len(etag) <= 200 and all(32 <= ord(c) < 127 for c in etag)
+        ):
+            etag = None
+        if status in (403, 429):  # throttled (GitHub answers 403 when the hourly quota is spent)
+            if status == 429:
+                self._penalize(host, retry_after)
+            return ConditionalJson(
+                status, None, None, remaining=remaining, reset_at=reset_at, retry_after=retry_after
+            )
+        if 300 <= status < 400 and status != 304:
+            raise ExternalFetchError("redirect")  # never followed
+        if status >= 500:
+            self._penalize(host, retry_after)
+            raise ExternalFetchError("bad_status")
+        if status == 304:
+            self._failures.pop(host, None)
+            return ConditionalJson(304, None, etag, remaining=remaining, reset_at=reset_at)
+        if status != 200:
+            raise ExternalFetchError("bad_status")
+        if _media_type(response.getheader("Content-Type")) != "application/json":
+            raise ExternalFetchError("bad_content_type")
+        if (response.getheader("Content-Encoding") or "identity").strip().lower() != "identity":
+            raise ExternalFetchError("bad_content_type")
+        length = response.getheader("Content-Length")
+        if length is not None and length.strip().isdigit() and int(length.strip()) > MAX_JSON_BYTES:
+            raise ExternalFetchError("too_large")
+        data = self._parse(self._read_body(response, MAX_JSON_BYTES, deadline))
+        self._failures.pop(host, None)
+        return ConditionalJson(200, data, etag, remaining=remaining, reset_at=reset_at)
+
+
+def _int_header(value: str | None) -> int | None:
+    if value is None or not value.strip().isascii() or not value.strip().isdigit():
+        return None
+    number = int(value.strip())
+    return number if number < 10**12 else None
 
 
 class DisabledGateway:
@@ -310,4 +402,7 @@ class DisabledGateway:
         raise ExternalFetchError("disabled")
 
     def get_image(self, url: str) -> FetchedImage:
+        raise ExternalFetchError("disabled")
+
+    def get_json_conditional(self, url: str, etag: str | None) -> ConditionalJson:
         raise ExternalFetchError("disabled")

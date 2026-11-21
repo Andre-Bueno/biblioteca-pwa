@@ -101,6 +101,16 @@ if [ "$ONLY" != "backend" ]; then
   fi
 fi
 
+# Infra e CI: testes so com biblioteca padrao (sem rede, sem Docker); rodam sempre, como o scan de segredos.
+INFRA_PY="$(command -v python3 || command -v python || true)"
+if [ -x "${PY:-}" ]; then INFRA_PY="$PY"; fi
+if [ -z "$INFRA_PY" ]; then
+  add "infra: deploy-hook tests" FALHA 0 "python nao encontrado"; add "ci: release_notes tests" FALHA 0 "python nao encontrado"
+else
+  step "infra: deploy-hook tests" "$ROOT" 0 "" "$INFRA_PY" -I -m unittest discover -s infra/deploy-hook -p 'test_*.py'
+  step "ci: release_notes tests" "$ROOT" 0 "" "$INFRA_PY" -I -m unittest discover -s .github/scripts -p 'test_*.py'
+fi
+
 echo; echo "=== scan de segredos ==="; t0=$SECONDS
 if command -v gitleaks >/dev/null 2>&1; then
   ( cd "$ROOT" && gitleaks detect --no-git --source . --redact --config "$ROOT/scripts/gitleaks.toml" ); code=$?

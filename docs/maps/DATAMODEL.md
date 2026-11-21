@@ -1,21 +1,22 @@
 # DATAMODEL
 
-Estado: 2026-11-21. Migrações em `backend/migrations/versions/`: `0001` (contas e autenticação), `0002` (itens), `0003` (remove dois índices de `items`), `0004` (progresso de leitura e `users.reading_direction`), `0005` (séries e `items.series_id`/`chapter_number`), `0006` (campos de metadados em `series`), `0007` (atribuição da descrição). Banco: SQLite em WAL (ADR 0007). `DATABASE_URL` padrão do `Settings`: `sqlite:///./data/app.db`; compose e imagem: `sqlite:////data/app.db`. ORM: `backend/app/adapters/persistence/models.py`. O schema é da migração; o ORM não cria tabelas.
+Estado: 2026-11-21. Migrações em `backend/migrations/versions/`: `0001` (contas e autenticação), `0002` (itens), `0003` (remove dois índices de `items`), `0004` (progresso de leitura e `users.reading_direction`), `0005` (séries e `items.series_id`/`chapter_number`), `0006` (campos de metadados em `series`), `0007` (atribuição da descrição), `0008` (preferências de leitura de livro em `users`). Banco: SQLite em WAL (ADR 0007). `DATABASE_URL` padrão do `Settings`: `sqlite:///./data/app.db`; compose e imagem: `sqlite:////data/app.db`. ORM: `backend/app/adapters/persistence/models.py`. O schema é da migração; o ORM não cria tabelas.
 
 ## Entidades
 
 | Entidade (tabela) | Campos | Estado |
 |---|---|---|
-| User (`users`) | id (UUID texto), username, password_hash (Argon2id), role (admin, user), is_active, theme_pref (system, light, dark; padrão system), reading_direction (rtl, ltr, vertical; padrão rtl), created_at, updated_at, password_changed_at | implementado |
+| User (`users`) | id (UUID texto), username, password_hash (Argon2id), role (admin, user), is_active, theme_pref (system, light, dark; padrão system), reading_direction (rtl, ltr, vertical; padrão rtl), book_font_scale (80–200; padrão 100), book_theme (auto, light, dark, sepia; padrão auto), created_at, updated_at, password_changed_at | implementado |
 | RefreshToken (`refresh_tokens`) | id, user_id → users (CASCADE), family_id, token_hash (SHA-256 hex, único), created_at, expires_at, used_at, revoked_at, user_agent, ip | implementado; `user_agent` e `ip` não são preenchidos (pendência) |
 | LoginAttempt (`login_attempts`) | id, scope (ip, account, ip_account), key_hash (HMAC-SHA256 hex, 64), attempted_at, success | implementado |
 | AuditLog (`audit_log`) | id, at, event, user_id → users (SET NULL), ip, detail (JSON, ≤ 512 bytes) | implementado; `ip` nunca preenchido (pendência) |
-| Item (`items`) | id (UUID texto, opaco), type (manga, book, pdf), title, rel_path (único, relativo, nunca enviado à API), format (cbz, folder), page_count, content_hash (opcional), size, mtime_ns, added_at, updated_at, missing, series_id (→ series, `ON DELETE SET NULL`, opcional), chapter_number (real, opcional, do nome do arquivo) | implementado (`0002`, `0003`, `0005`) |
-| ReadingProgress (`reading_progress`) | user_id → users (CASCADE), item_id → items (CASCADE), locator (índice da página, 0-based), percent (0–100), finished, device_id (opcional, até 64), updated_at (UTC). PK `(user_id, item_id)` | implementado (`0004`) |
+| Item (`items`) | id (UUID texto, opaco), type (manga, book, pdf), title, rel_path (único, relativo, nunca enviado à API), format (cbz, folder, epub), page_count (páginas; para livro, número de capítulos), content_hash (opcional), size, mtime_ns, added_at, updated_at, missing, series_id (→ series, `ON DELETE SET NULL`, opcional), chapter_number (real, opcional, do nome do arquivo) | implementado (`0002`, `0003`, `0005`) |
+| ReadingProgress (`reading_progress`) | user_id → users (CASCADE), item_id → items (CASCADE), locator (índice da página, 0-based; livro: capítulo * 10000 + offset_bp), percent (0–100), finished, device_id (opcional, até 64), updated_at (UTC). PK `(user_id, item_id)` | implementado (`0004`) |
 | Series (`series`) | id (UUID), title, sort_title (dígitos preenchidos a 12), folder_rel_path (único; nulo = série avulsa; nunca enviado à API), description, description_lang, description_origin (source, translated, manual), description_source_name, description_source_url, metadata_source (mangadex, anilist, wikipedia, googlebooks), external_id, source_url (https), title_original, metadata_state (none, matched, manual, not_found), metadata_checked_at, cover_path (só `<uuid>.<ext>`; nunca caminho), created_at, updated_at | implementado (`0005`, `0006`, `0007`; ADR 0014, 0015, 0016) |
 | Chapter | não é tabela: é um `item` com `series_id` e `chapter_number` | implementado (ADR 0014) |
+| Kind da série | não é coluna: derivado dos capítulos (`manga`, `book` ou `mixed`) por `series_kind` | implementado |
 
-Eventos de `audit_log` hoje: `user.created`, `user.password_reset`, `user.deactivated`, `login.success`, `login.failure`, `login.locked`, `token.refresh`, `token.reuse_detected`, `logout`, `password.changed`. Escaneamento, agrupamento, progresso e enriquecimento de metadados não geram evento.
+Eventos de `audit_log` hoje: `user.created`, `user.password_reset`, `user.deactivated`, `login.success`, `login.failure`, `login.locked`, `token.refresh`, `token.reuse_detected`, `logout`, `password.changed`, `system.update_requested` e `system.update_failed` (estes dois com só a tag em `detail`; ADR 0018). Escaneamento, agrupamento, progresso, leitura de livro e enriquecimento de metadados não geram evento.
 
 ## Migrações
 
@@ -28,12 +29,13 @@ Eventos de `audit_log` hoje: `user.created`, `user.password_reset`, `user.deacti
 | `0005` | Tabela `series` (CHECK de `metadata_state`; `folder_rel_path` único; `ix_series_sort_title`); `items.series_id` (FK `ON DELETE SET NULL`, `ix_items_series_id`) e `items.chapter_number` por `ALTER ADD COLUMN`; backfill idempotente (uma série por pasta pai, uma avulsa por item na raiz). Sem recriar `items` (recriar apagaria o progresso) | sim (remove índice, colunas e tabela; itens e progresso intactos) |
 | `0006` | `series.source_url`, `series.metadata_checked_at`, `series.title_original` por `ALTER ADD COLUMN` | sim (remove as três colunas) |
 | `0007` | `series.description_origin` (CHECK: source, translated, manual) e `description_source_name`/`description_source_url` por `ALTER ADD COLUMN`; backfill de descrições da versão anterior (com fonte: `source`; sem fonte: `manual`) | sim (remove as três colunas) |
+| `0008` | `users.book_font_scale` (`INTEGER NOT NULL DEFAULT 100`, CHECK 80–200) e `users.book_theme` (`VARCHAR(8) NOT NULL DEFAULT 'auto'`, CHECK auto, light, dark, sepia) por `ALTER ADD COLUMN`. Sem recriar `users` | sim (remove as duas colunas) |
 
-## Índices e restrições (estado final após 0004)
+## Índices e restrições (estado final após 0008)
 
 | Tabela | Índice ou restrição |
 |---|---|
-| users | `ux_users_username_lower` (único em `lower(username)`); `ck_users_role` (admin, user); `ck_users_theme_pref` (system, light, dark); `ck_users_reading_direction` (rtl, ltr, vertical) |
+| users | `ux_users_username_lower` (único em `lower(username)`); `ck_users_role` (admin, user); `ck_users_theme_pref` (system, light, dark); `ck_users_reading_direction` (rtl, ltr, vertical); `ck_users_book_font_scale` (80 a 200); `ck_users_book_theme` (auto, light, dark, sepia) |
 | refresh_tokens | `token_hash` único; `ix_refresh_tokens_user_id`; `ix_refresh_tokens_family_id`; `ix_refresh_tokens_expires_at` |
 | login_attempts | `ck_login_attempts_scope`; `ix_login_attempts_lookup` (scope, key_hash, attempted_at); `ix_login_attempts_attempted_at` |
 | audit_log | `ix_audit_log_at`; `ix_audit_log_event_at` (event, at); `ix_audit_log_user_id` |
@@ -58,7 +60,7 @@ Eventos de `audit_log` hoje: `user.created`, `user.password_reset`, `user.deacti
 | Tema | PLANO §4 | Implementado |
 |---|---|---|
 | Identificador da conta | `email` | `username` (ADR 0007) |
-| Campos extras de User | — | `is_active`, `updated_at`, `password_changed_at`, `reading_direction` |
+| Campos extras de User | — | `is_active`, `updated_at`, `password_changed_at`, `reading_direction`, `book_font_scale`, `book_theme` |
 | Item | `path_rel`, `cover`, `added_at` | `rel_path`; sem `cover` (a capa é a primeira página: `has_cover` = `page_count > 0`); inclui `size`, `mtime_ns`, `format`, `page_count`, `missing` |
 | Session | tabela `Session` | sessão é a família de `refresh_tokens` (`family_id`); sem tabela própria |
 | ReadingProgress | `(user_id, item_id, locator, percent, device_id, updated_at, finished)` | igual; `percent` e `finished` são derivados no servidor (ADR 0013) |
@@ -73,21 +75,24 @@ Eventos de `audit_log` hoje: `user.created`, `user.password_reset`, `user.deacti
 | Token | Só o SHA-256 do refresh é gravado; access é JWT (não gravado) | implementado |
 | Hash de senha | Argon2id em `password_hash`; nunca em log, `repr` ou auditoria | implementado |
 | Chaves de tentativa | IP e conta só como HMAC-SHA256 truncado (16 hex) por escopo | implementado |
-| Auditoria | Sem senha, token, hash, IP ou username em claro; `detail` > 512 bytes vira `{"truncated": true}` | implementado |
+| Auditoria | Sem senha, token, hash, IP ou username em claro; `detail` > 512 bytes vira `{"truncated": true}`; eventos de atualização só com a tag | implementado |
 | Caminho | `rel_path` relativo; caminho absoluto nunca vem do cliente; resolução só em `LocalStorage` | implementado |
 | Itens ausentes | `missing = true` some de `get`, `list` e `search`; reaparecer no scan mantém o id | implementado |
 | Isolamento | Toda consulta de dado de usuário filtra por `user_id` do token (progresso, preferências, prateleira). A biblioteca é global | implementado (progresso e preferências); biblioteca não é por usuário |
-| Progresso | `locator` entre 0 e `page_count - 1` do item; `percent = (locator + 1) / page_count * 100`; `finished` = última página | implementado |
+| Progresso de mangá e PDF | `locator` entre 0 e `page_count - 1`; `percent = (locator + 1) / page_count * 100`; `finished` = última página | implementado |
+| Progresso de livro | `locator = capítulo * 10000 + offset_bp` (capítulo existente, offset < 10 000); `percent = (capítulo + offset_bp / 10000) / capítulos * 100`; concluído no último capítulo com offset ≥ 9000 | implementado (ADR 0017, proposto) |
 | Progresso e item ausente | Item marcado como ausente: progresso não aparece em "continuar lendo" e `PUT` responde 404; progresso não é apagado | implementado |
 | Remoção de item | Apaga o progresso (CASCADE) | implementado |
 | Remoção de usuário | Apaga progresso e sessões (CASCADE) | implementado |
-| Preferências | Duas colunas com check; `PUT` grava as duas (objeto completo) | implementado |
-| Locator | manga/PDF = índice da página; EPUB = CFI | manga implementado; EPUB planejado (Fase 4) |
+| Preferências | Quatro colunas com check (tema, sentido de leitura e os dois campos de livro); `PUT` grava o objeto completo | implementado |
+| Locator | manga/PDF = índice da página; livro = capítulo * 10000 + offset_bp (ver acima); CFI não é usado | implementado para manga e livro; PDF planejado (Fase 4) |
 | Conflito entre dispositivos | Último a gravar vence; `updated_at` do servidor | implementado (ADR 0013) |
 | Série | Chave é a pasta pai (`folder_rel_path`); renomear pasta cria série nova (limitação, ADR 0014) | implementado |
 | Ordem de série | `sort_title` = caixa baixa com cada bloco de dígitos preenchido a 12 posições; listagem por `(sort_title, id)` | implementado (ADR 0014) |
 | Ordem de capítulo | `chapter_number` primeiro (sem número, no fim), depois ordem natural do nome, depois id | implementado (ADR 0014) |
+| Kind e tipo | Capítulo traz `type` (manga, book, pdf); série traz `kind` (manga, book, mixed), derivado e não armazenado | implementado (REG-027) |
 | Metadado manual | `metadata_state = manual` nunca é sobrescrito por enriquecimento automático; a escrita confere o estado atual | implementado (REG-021) |
+| Enriquecimento e livros | Séries de livro não entram no enriquecimento automático | implementado (REG-026) |
 | Estados de metadado | none → matched (fonte) ou not_found (sem casamento seguro; reavaliado após 7 dias); manual (admin) | implementado (ADR 0015) |
 | Atribuição | `description_origin` e `description_source_*` dizem de quem é o texto; tradução marcada como `translated` | implementado (ADR 0015) |
 | Visibilidade de série | Série só aparece com pelo menos um capítulo ativo (`missing = false`); item ausente sai da série e mantém `series_id` | implementado |

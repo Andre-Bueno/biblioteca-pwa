@@ -46,11 +46,18 @@ def test_preferences_are_per_user(db_url: str, tmp_path: Path) -> None:
     env, _ = library_env(db_url, tmp_path, scan=False)
     env.create_user("bob", PASSWORD)
     alice, bob = logged_in(env, "alice"), logged_in(env, "bob")
-    saved = {"theme": "dark", "reading_direction": "vertical"}
+    saved = {
+        "theme": "dark",
+        "reading_direction": "vertical",
+        "book_font_scale": 150,
+        "book_theme": "sepia",
+    }
     assert alice.put("/api/v1/me/preferences", saved).status_code == 200
     assert bob.get("/api/v1/me/preferences").json() == {
         "theme": "system",
         "reading_direction": "rtl",
+        "book_font_scale": 100,
+        "book_theme": "auto",
     }
     assert alice.get("/api/v1/me/preferences").json() == saved
 

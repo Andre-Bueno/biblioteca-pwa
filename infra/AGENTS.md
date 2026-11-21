@@ -1,6 +1,6 @@
 # infra/AGENTS.md
 
-Só o empacotamento do app: `Dockerfile` (multi-stage: build do frontend + runtime), `entrypoint.sh`, `constraints.txt` (deps Python e setuptools/wheel fixados, gerado DENTRO de `python:3.12.8-slim` por `gen_constraints.sh`) e `compose.example.yml`. Um único container: o backend serve o frontend (`FRONTEND_DIST_DIR=/app/static`). Guia de operação: `docs/DEPLOY.md`. Contexto de build: raiz do repositório (`.dockerignore` na raiz).
+Só o empacotamento do app: `Dockerfile` (multi-stage: build do frontend + runtime), `entrypoint.sh`, `constraints.txt` (deps Python e setuptools/wheel fixados, gerado DENTRO de `python:3.12.8-slim` por `gen_constraints.sh`) e `compose.example.yml`. Um único container: o backend serve o frontend (`FRONTEND_DIST_DIR=/app/static`). Também aqui: `deploy-hook/` (receptor de referência do webhook de atualização, roda no host, fora do container) e, na raiz, `.github/` (CI, release por tag, dependabot; ver a seção "CI, release e atualização"). Guia de operação: `docs/DEPLOY.md`. Contexto de build: raiz do repositório (`.dockerignore` na raiz).
 
 **Fora de escopo:** rede, VPN/Tailscale, firewall, TLS, proxy e domínio. O servidor já está configurado e o app é público. Não criar regras de acesso por IP ou VPN.
 
@@ -53,6 +53,13 @@ Compose, com padrão:
 | `METADATA_LANGUAGES` | `pt-br,pt,en` | Idiomas de descrição, do melhor para o pior (até 6 códigos) |
 | `METADATA_HTTP_TIMEOUT_SECONDS` | `15` | Tempo total de cada requisição externa (1 a 60) |
 | `METADATA_MAX_PER_RUN` | `25` | Séries processadas por execução de enriquecimento (1 a 1000) |
+| `APP_TAG` | `latest` | Tag da imagem publicada (`ghcr.io/andre-bueno/biblioteca-pwa:${APP_TAG}`); fixe uma versão em produção. Vai no `.env`, não no compose |
+| `UPDATE_CHECK_ENABLED` | `true` | Consulta a última release (só numa imagem de release, com `APP_VERSION` diferente de `dev`) |
+| `UPDATE_REPOSITORY` | `Andre-Bueno/biblioteca-pwa` | `owner/name` consultado em `api.github.com` |
+| `UPDATE_CHECK_INTERVAL_HOURS` | `6` | Intervalo do cache da consulta (1 a 168) |
+| `UPDATE_WEBHOOK_URL` | vazio | Receptor do webhook (ex.: `https://…/update`). Sem ele, o aviso não tem botão "Atualizar agora". Par obrigatório com o segredo |
+| `UPDATE_WEBHOOK_SECRET` | vazio | Segredo HMAC (≥ 32 caracteres); deve ser igual ao `UPDATE_HOOK_SECRET` do receptor. Nunca no repositório |
+| `UPDATE_WEBHOOK_ALLOW_HTTP` | `false` | Só para receptor na rede do operador (loopback, privada ou CGNAT); link-local é recusado sempre (ADR 0018) |
 | `UVICORN_LIMIT_CONCURRENCY` | `100` | Conexões abertas antes de responder 503 (Dockerfile) |
 | `UVICORN_TIMEOUT_KEEP_ALIVE` | `5` | Segundos de keep-alive ociosa (Dockerfile) |
 | `UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN` | `20` | Segundos para encerrar com graça (Dockerfile) |
@@ -64,6 +71,7 @@ Fixas na imagem (não são variáveis de operador):
 | `FRONTEND_DIST_DIR` | `/app/static` | Frontend compilado servido pelo app (`api/spa.py`) |
 | `DATABASE_URL` / `LIBRARY_PATH` | `sqlite:////data/app.db` / `/library` | Banco no volume e biblioteca montada |
 | `MIGRATIONS_DIR` | `/app/migrations` | Localiza `env.py` do Alembic dentro do container (`pip install .` não deixa `migrations/` ao lado do pacote) |
+| `APP_VERSION` | `dev` por padrão; `ARG APP_VERSION` no build | Versão da release gravada na imagem (o release workflow passa a tag). `dev` desliga a checagem de atualização |
 
 Só com padrão no `Settings` (não passam pelo compose; podem ser definidas no `.env` ou no ambiente):
 
@@ -113,4 +121,16 @@ Demais comandos: `create-user` (sem `--admin`), `reset-password`, `deactivate-us
 - Compose: `read_only`, `cap_drop: ALL`, `no-new-privileges`, `tmpfs /tmp`, `restart: unless-stopped`, porta em loopback, volume `app-data`, sub-rede fixa, `stop_grace_period`, `pids_limit` e `mem_limit`.
 - Validado em 2026-11-20: build, `up`, healthy, `/`, `/assets/*`, fallback SPA, login (CSRF), scan e listagem, não-root, fs somente leitura.
 - Validado em 2026-11-21 com a biblioteca real (relatado pelo dono): build com `ENV DATA_DIR=/data`, scan, séries, enriquecimento e capas gravadas em `/data/covers`. Falha de build por DNS: ver `docs/DEPLOY.md` (troubleshooting).
-- Pendente: lockfile com hashes (M8); digest das imagens; CI inexistente (`.github/` não existe).
+- Pendente: lockfile com hashes (M8); digest das imagens; primeira execução real do CI e do release (escritos, ainda não rodados nesta entrega).
+
+## CI, release e atualização
+
+| Item | Regra |
+|---|---|
+| CI (`.github/workflows/ci.yml`) | Roda em push para `master` e em pull request. Jobs: backend (ruff, mypy, lint-imports, pytest, bandit, pip-audit), frontend (lint, typecheck, test, arch, format, build, npm audit de produção), testes de infra (deploy-hook e notas de release), gitleaks (versão fixada com checksum) e build da imagem sem push |
+| Release (`.github/workflows/release.yml`) | Por tag `vX.Y.Z` (ou `-rc`). Ordem: `prepare` (tag, seção do `CHANGELOG.md`, commit na `master`) → `verify` (chama o CI) → `publish` (GHCR, com proveniência e SBOM) → `release`. Falha numa etapa impede as seguintes |
+| Imagem | `ghcr.io/andre-bueno/biblioteca-pwa`; `latest` só em release final |
+| Actions | Fixadas por SHA; Dependabot semanal (actions, pip, npm, docker) |
+| Webhook (`deploy-hook/receiver.py`) | Referência de receptor no host: assinatura HMAC, janela de 300 s, nonce, repositório e tag; `docker compose pull` e `up -d`; reverte se o healthcheck falhar. Escuta em `127.0.0.1` por padrão. Contrato e verificações: `deploy-hook/README.md` |
+| Regra | O app **nunca** acessa o Docker. Quem atualiza é o receptor, no host. Mudar o contrato exige ADR (ADR 0018) e alterar app e receptor juntos |
+| Segredo | `UPDATE_WEBHOOK_SECRET` (app) e `UPDATE_HOOK_SECRET` (receptor) são o mesmo valor; fica no cofre ou em arquivo `chmod 600`, nunca no repositório |

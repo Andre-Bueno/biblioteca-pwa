@@ -4,7 +4,9 @@ import { readerPath } from '../../../shared/items';
 import { useSession } from '../../../shared/session';
 import {
   safeHttpsUrl,
+  seriesCountLabel,
   seriesCoverUrl,
+  seriesKindOf,
   useSeriesDetail,
   type SeriesDetail,
 } from '../../../shared/series';
@@ -46,7 +48,7 @@ function SeriesContent({ series, coverVersion, isAdmin, onMetadataChanged }: Con
             {series.title}
           </h1>
           <p className="muted" data-testid="series-count">
-            {series.chapter_count === 1 ? '1 capítulo' : `${series.chapter_count} capítulos`}
+            {seriesCountLabel(series.chapter_count, seriesKindOf(series))}
           </p>
           {series.source && (
             <p className="muted" data-testid="series-source">
@@ -77,7 +79,7 @@ function SeriesContent({ series, coverVersion, isAdmin, onMetadataChanged }: Con
           Esta série ainda não tem capítulos.
         </p>
       ) : (
-        <ChapterList chapters={series.chapters} seriesId={series.id} />
+        <ChapterList chapters={series.chapters} seriesId={series.id} kind={seriesKindOf(series)} />
       )}
     </>
   );

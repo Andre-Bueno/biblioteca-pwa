@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../shared/preferences';
 import { SessionProvider } from '../shared/session';
+import { VersionProvider } from '../shared/system';
 import { ThemeProvider } from '../shared/theme';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -9,7 +10,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <ThemeProvider>
       <BrowserRouter>
         <SessionProvider>
-          <PreferencesProvider>{children}</PreferencesProvider>
+          <PreferencesProvider>
+            <VersionProvider>{children}</VersionProvider>
+          </PreferencesProvider>
         </SessionProvider>
       </BrowserRouter>
     </ThemeProvider>

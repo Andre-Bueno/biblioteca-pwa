@@ -14,6 +14,7 @@ from library_env import ORV, add_item, logged_in, series_env, series_id_by_title
 LIST_KEYS = {
     "id",
     "title",
+    "kind",
     "chapter_count",
     "has_cover",
     "description",
@@ -24,6 +25,7 @@ LIST_KEYS = {
 DETAIL_KEYS = {
     "id",
     "title",
+    "kind",
     "description",
     "description_lang",
     "description_origin",
@@ -77,7 +79,10 @@ def test_series_detail_orders_chapters_naturally_and_titles_them(
         "Capitulo 100",
         "Extras",
     ]
-    assert all(set(c) == {"id", "title", "number", "page_count", "progress"} for c in chapters)
+    assert all(
+        set(c) == {"id", "type", "title", "number", "page_count", "progress"} for c in chapters
+    )
+    assert all(c["type"] == "manga" for c in chapters) and detail["kind"] == "manga"
     assert chapters[0]["page_count"] == 3 and chapters[0]["progress"] is None
     assert detail["chapter_count"] == 7 and detail["has_cover"] is True
     mixed = alice.get(f"/api/v1/series/{series_id_by_title(alice, 'Mixed Series')}").json()

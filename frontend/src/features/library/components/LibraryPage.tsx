@@ -1,6 +1,7 @@
 ﻿import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSession } from '../../../shared/session';
+import { UpdateNotice } from '../../../shared/system';
 import { EnrichControl } from './EnrichControl';
 import { useContinueReading } from '../hooks/useContinueReading';
 import { useLibrary } from '../hooks/useLibrary';
@@ -28,6 +29,8 @@ export function LibraryPage() {
           Ajustes
         </Link>
       </header>
+
+      <UpdateNotice />
 
       <div className="library__filters">
         <input

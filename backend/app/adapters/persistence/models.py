@@ -41,6 +41,9 @@ class UserRow(Base):
     theme_pref: Mapped[str] = mapped_column(String(16))
     # server_default: inserts that do not mention it (user creation) get 'rtl' from the database.
     reading_direction: Mapped[str] = mapped_column(String(16), server_default="rtl")
+    # Added by 0008 (CHECKs in the migration): EPUB reader settings, server-authoritative.
+    book_font_scale: Mapped[int] = mapped_column(Integer, server_default="100")
+    book_theme: Mapped[str] = mapped_column(String(8), server_default="auto")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
     password_changed_at: Mapped[datetime] = mapped_column(UTCDateTime)

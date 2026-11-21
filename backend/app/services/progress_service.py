@@ -25,7 +25,7 @@ class ProgressService:
         item = self._items.get(item_id)
         if item is None:
             raise ItemNotFound
-        percent, finished = compute_position(locator, item.page_count)
+        percent, finished = compute_position(locator, item.page_count, item.type)
         saved = Progress(
             user_id=user_id,
             item_id=item_id,

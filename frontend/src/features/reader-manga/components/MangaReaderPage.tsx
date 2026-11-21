@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import type { Item } from '../../../shared/items';
+import { Link } from 'react-router-dom';
+import type { Item, ItemState } from '../../../shared/items';
 import { usePreferences } from '../../../shared/preferences';
+import { useReaderNav, type ReaderNav } from '../../../shared/series';
 import '../../../shared/ui';
 import { useReaderData } from '../hooks/useReaderData';
-import { useReaderNav, type ReaderNav } from '../hooks/useReaderNav';
 import { ChapterEnd } from './ChapterEnd';
 import { useReaderState } from '../hooks/useReaderState';
 import { PagedViewport } from './PagedViewport';
@@ -71,9 +71,14 @@ function Message({ children }: { children: ReactNode }) {
   );
 }
 
-export function MangaReaderPage() {
-  const { itemId = '' } = useParams();
-  const { data, retry } = useReaderData(itemId);
+interface MangaReaderPageProps {
+  /** The item, loaded by the reader route (which also decides manga or book). */
+  itemState: ItemState;
+  retryItem: () => void;
+}
+
+export function MangaReaderPage({ itemState, retryItem }: MangaReaderPageProps) {
+  const { data, retry } = useReaderData(itemState, retryItem);
   const { loaded } = usePreferences(); // the default reading mode comes from the preferences
   const nav = useReaderNav(data.status === 'ready' ? data.item : null);
 

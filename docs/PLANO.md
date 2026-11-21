@@ -1,6 +1,6 @@
 # PLANO — Leitor de Mangás e Livros (PWA para iOS)
 
-> Nome provisório: **Biblioteca**. Status: Fase 1, Fase 2 e leitor de mangá (MVP) entregues; Fase 3 parcial; agrupamento em séries e metadados de fontes públicas entregues (2026-11-21, ADR 0014 a 0016). Última atualização: 2026-11-21 (ver `docs/history/2026-11-21-series-e-metadados.md`).
+> Nome provisório: **Biblioteca**. Status: Fase 1, Fase 2 e leitor de mangá (MVP) entregues; Fase 3 parcial; agrupamento em séries e metadados de fontes públicas entregues (2026-11-21, ADR 0014 a 0016); leitor de EPUB, aviso e atualização por release, e CI/release no GitHub entregues (2026-11-21, ADR 0017 e 0018 propostos, aguardando aceite do dono). Última atualização: 2026-11-21 (ver `docs/history/2026-11-21-series-e-metadados.md` e `docs/history/2026-11-21-epub-aviso-atualizacao-ci.md`).
 
 ## 1. Decisões já tomadas
 
@@ -104,7 +104,7 @@ LIVROS/
   - **Nota (Fase 1):** tabela `items` na migração `0002` (`rel_path` único, `size`, `mtime_ns`, `page_count`, `missing`) e adaptador `SqlAlchemyItemRepository`. Sem coluna `cover`: a capa é a primeira página. API em `/api/v1/items`.
 - `Series` (agrupa volumes/capítulos de um mangá) e `Chapter` (opcional). **Nota (2026-11-21):** implementado como série por pasta com capítulos em `items` (ADR 0014); metadados em `series` (migrações `0005` a `0007`).
 - `ReadingProgress` (user_id, item_id, **locator**, percent, device_id, updated_at, finished) — chave única `(user_id, item_id)`
-  - `locator`: manga/PDF = índice da página; EPUB = CFI.
+  - `locator`: manga/PDF = índice da página; livro = `capítulo * 10000 + offset_bp` (ADR 0017; o plano original previa CFI).
   - Conflito entre dispositivos: vence o maior `updated_at`; o servidor define o relógio. **Nota (Fase 3):** implementado como último a gravar vence, sem comparar timestamps do cliente (ADR 0013). `percent` e `finished` são calculados no servidor.
   - **Nota (Fase 3):** tabela `reading_progress` na migração `0004` (e `users.reading_direction`).
 - `Session` / `RefreshToken` (revogáveis): implementado como família de `refresh_tokens` (ADR 0008), sem tabela de sessão própria.
@@ -114,7 +114,7 @@ LIVROS/
 
 REST versionada em `/api/v1`. Documentação da API: mapa manual em `docs/maps/API.md` por ora; OpenAPI/Swagger **desligados** no app (`docs_url`, `redoc_url`, `openapi_url` = None em `backend/app/main.py`). Pode ser reavaliado via export em build.
 Principais: `POST /auth/login`, `GET /items`, `GET /items/{id}`, `GET /items/{id}/pages/{n}` (imagem), `GET /items/{id}/file` (EPUB/PDF com *Range*), `PUT /progress/{item_id}`, `GET /progress/continue`, `POST /library/scan`, `GET/PUT /me/preferences`.
-Estado (2026-11-20): implementados todos, exceto `GET /items/{id}/file` (Fase 4). Lista completa em `docs/maps/API.md`.
+Estado (2026-11-21): implementados todos, exceto `GET /items/{id}/file` (PDF, Fase 4). EPUB é servido pelas rotas `/items/{id}/book...` (ADR 0017), não por arquivo bruto. Lista completa em `docs/maps/API.md`.
 
 ## 6. Segurança (requisito de primeira classe)
 
@@ -173,7 +173,7 @@ Auditor re-testa e fecha
 
 **Regressão**
 - Todo bug corrigido ganha um teste em `tests/regression/` com ID (`test_reg_012_...`) referenciando o finding/issue.
-- `scripts/check` roda: lint, tipos (mypy/tsc), testes (pytest, vitest), arquitetura (import-linter, dependency-cruiser), SAST (bandit), auditoria de dependências (pip-audit, npm audit) e scan de segredos. Nada entra sem passar, mas hoje o gate é manual: **CI (`.github/`) é planejado e não existe**. **semgrep é planejado e não está no `check`.**
+- `scripts/check` roda: lint, tipos (mypy/tsc), testes (pytest, vitest), arquitetura (import-linter, dependency-cruiser), SAST (bandit), auditoria de dependências (pip-audit, npm audit) e scan de segredos. Nada entra sem passar, mas o gate local é manual: o CI (`.github/workflows/ci.yml`) foi escrito em 2026-11-21 e ainda precisa da primeira execução. **semgrep é planejado e não está no `check`.**
 - E2E (Playwright) cobrindo: login, abrir mangá, parar na página 5 e retomar, alternar tema, offline.
 
 ## 9. Roteiro por fases
@@ -202,7 +202,7 @@ Auditor re-testa e fecha
 | Lockfile do frontend (`package-lock.json`) | Entregue |
 | Lockfile do backend e hashes no Dockerfile (M8) | **Sobra** (Fase 1, antes de publicar) |
 | Repositório git | **Sobra** (não inicializado nesta pasta) |
-| CI (`.github/`) | **Sobra** (planejado) |
+| CI (`.github/`) | Escrito em 2026-11-21 (`ci.yml`, `release.yml`); primeira execução pendente |
 | `semgrep` no `check` | **Sobra** (planejado) |
 | Instalar e rodar `gitleaks` no `check` | **Sobra** |
 | Teste de módulo fora do `CODEMAP` (`tests/architecture`) | **Sobra** (planejado) |
@@ -222,7 +222,8 @@ Status: **concluída (backend)**, com pendências abaixo. Frontend não iniciou 
 | `FORWARDED_ALLOW_IPS` obrigatória (M-3) | Entregue (ADR 0011) |
 | Auditoria de 2026-11-19 (12 findings) e correções | Corrigido; todos `fixed` (nenhum `verified`); FIND-2026-009 `open` (decisão do dono) |
 | `ComicInfo.xml` | Ignorado; parser pendente (biblioteca segura a decidir) |
-| Extratores CBR, EPUB e PDF | Fase 4 (não iniciados) |
+| Extratores EPUB | Entregue em 2026-11-21 (ADR 0017, proposto) |
+| Extratores CBR e PDF | Fase 4 (não iniciados) |
 | Lockfile do backend e hashes no Dockerfile (M8) | Pendente (versões fixas em `pyproject.toml`) |
 | Build da imagem e `migrate` dentro dela | Não validado |
 | Reverificação ao vivo do FIND-2026-002 e reteste dos PoCs | Pendente (auditor) |

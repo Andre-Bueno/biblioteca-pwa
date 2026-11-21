@@ -29,7 +29,7 @@ TLS/HTTPS, proxy reverso, domínio, firewall, VPN e rede. O app só publica HTTP
 - Docker Engine com Compose v2 (`docker compose version`).
 - Uma pasta no host com a biblioteca. **Hoje só funcionam arquivos `.cbz` e pastas de imagens** (jpeg, png, webp, gif, avif); CBR, EPUB e PDF ainda não são lidos (Fase 4) e são ignorados pelo scan. Cada `.cbz` e cada pasta que contém imagens diretamente vira um item; subpastas são percorridas (até 16 níveis). Um `.cbz` com estrutura ZIP danificada é recusado no scan (ver §4). O container só lê (`:ro`); o usuário do container (UID 10001) precisa conseguir ler: arquivos legíveis por "outros" (`chmod -R a+rX`).
 - Acesso à internet no build (imagens `node:24.21.0-slim` e `python:3.12.8-slim`, pacotes npm e pip).
-- Saída de rede do container em `https` (porta 443) APENAS para os 7 hosts da allowlist de metadados: `api.mangadex.org`, `uploads.mangadex.org`, `graphql.anilist.co`, `s4.anilist.co`, `pt.wikipedia.org`, `www.googleapis.com`, `api.mymemory.translated.net`. Sem essa saída, os metadados não funcionam (o resto do app funciona). Se a política de rede não permitir, use `METADATA_ENABLED=false`, que desliga toda saída. O app não aceita outros hosts: não há variável para isso.
+- Saída de rede do container em `https` (porta 443) APENAS para os 8 hosts da allowlist: os 7 de metadados (`api.mangadex.org`, `uploads.mangadex.org`, `graphql.anilist.co`, `s4.anilist.co`, `pt.wikipedia.org`, `www.googleapis.com`, `api.mymemory.translated.net`) e `api.github.com`, usado só para checar a última release (aviso de atualização, ADR 0018). Sem a saída para os metadados, eles não funcionam (o resto do app funciona); se a política de rede não permitir, use `METADATA_ENABLED=false`, que desliga toda saída de metadados. O app não aceita outros hosts: não há variável para isso.
 
 ## 1. Configurar
 
@@ -155,7 +155,89 @@ $DC build
 $DC up -d
 ```
 
-O `up -d` recria o container com a imagem nova; o volume `/data` é mantido e as migrações rodam sozinhas. Faça backup antes (seção 6). Os usuários podem precisar recarregar o PWA para pegar o novo service worker.
+O `up -d` recria o container com a imagem nova; o volume `/data` é mantido e as migrações rodam sozinhas. Faça backup antes (seção 6). Quem usa o app vê o aviso "Nova versão do app disponível" e escolhe o momento de recarregar: o service worker não atualiza sozinho.
+
+Este caminho constrói a imagem no próprio servidor. Para usar a imagem publicada a cada release (sem build no servidor), veja a próxima seção.
+
+## Atualizações por release
+
+O repositório (`github.com/Andre-Bueno/biblioteca-pwa`) é público e o GitHub Actions testa e publica a imagem a cada tag de release. O servidor só precisa baixar a imagem pronta.
+
+### Como a tag gera a imagem
+
+1. O dono cria a entrada `## [X.Y.Z] - AAAA-MM-DD` no `CHANGELOG.md`, faz o merge em `master` e cria a tag `vX.Y.Z` (ou `vX.Y.Z-rc.1` para pré-release) nesse commit.
+2. O workflow `.github/workflows/release.yml` roda em ordem: `prepare` (valida a tag, exige a seção do `CHANGELOG.md` e exige que o commit esteja na `master`) → `verify` (mesmas verificações do CI: backend, frontend, testes de infra, scan de segredos, build da imagem) → `publish` (envia a imagem ao GHCR, com proveniência e SBOM) → `release` (cria a GitHub Release com as notas do `CHANGELOG.md`). Falha em qualquer etapa impede as seguintes: nada é publicado.
+3. O CI comum (`ci.yml`) roda a cada push em `master` e em pull requests; não publica nada.
+
+| Item | Valor |
+|---|---|
+| Imagem | `ghcr.io/andre-bueno/biblioteca-pwa` (nome em minúsculas, exigência do GHCR) |
+| Tags da imagem | `vX.Y.Z` e `X.Y.Z` sempre; `latest` SÓ em release final (tag sem `-`). Pré-release nunca vira `latest` |
+| Plataforma | `linux/amd64`. Para `arm64`, acrescente `docker/setup-qemu-action` (fixada por SHA) e `platforms: linux/amd64,linux/arm64` no job `publish` (o build fica bem mais lento) |
+| Versão no container | `APP_VERSION` (ENV) e labels `org.opencontainers.image.*` (`source`, `version`, `revision`, `created`) |
+| Fixação de actions | Todas as actions de terceiros estão fixadas por SHA de commit; o Dependabot abre PRs semanais |
+
+### `APP_TAG`: qual versão roda
+
+O compose usa `ghcr.io/andre-bueno/biblioteca-pwa:${APP_TAG:-latest}` (`pull_policy: missing`). Sem `APP_TAG` no `.env`, roda a última release final; com `APP_TAG=v0.1.0`, fica fixa naquela versão. Para produção, prefira fixar a tag. O `build:` continua no compose: `docker compose build` constrói do código local e dá o mesmo nome à imagem.
+
+### Atualizar manualmente
+
+```bash
+$DC exec backend python -c "..."   # backup antes (seção 6)
+# edite APP_TAG no .env (ex.: APP_TAG=v0.2.0), depois:
+$DC pull
+$DC up -d
+$DC ps          # esperar "healthy"
+```
+
+`up -d` sozinho NÃO baixa versão nova de uma tag já presente (`pull_policy: missing`); por isso o `pull` antes. As migrações rodam no start do container.
+
+### Rollback
+
+Volte o `APP_TAG` para a tag anterior no `.env` e rode `$DC up -d` (a imagem antiga costuma estar no cache local; senão rode `$DC pull` antes). Atenção: as migrações do banco só andam para a frente no start. Se a versão nova migrou o schema, restaure o backup de `/data` feito antes da atualização (seção 6) em vez de só trocar a tag.
+
+### Aviso de nova release e atualização pelo app (admin)
+
+O app consulta a última release (ao admin abrir a versão, no máximo a cada `UPDATE_CHECK_INTERVAL_HOURS`), avisa o admin e, quando o admin aprova, envia um webhook assinado ao receptor no host. O app NUNCA acessa o Docker.
+
+| Variável (`.env`) | Padrão | Uso |
+|---|---|---|
+| `UPDATE_CHECK_ENABLED` | `true` | Liga a consulta à última release. Só numa imagem de release (`APP_VERSION` diferente de `dev`) |
+| `UPDATE_REPOSITORY` | `Andre-Bueno/biblioteca-pwa` | Repositório consultado em `api.github.com` |
+| `UPDATE_CHECK_INTERVAL_HOURS` | `6` | Intervalo do cache da consulta (1 a 168) |
+| `UPDATE_WEBHOOK_URL` | vazio | URL do receptor (ex.: `https://seu-dominio/update`). Sem ela, o aviso mostra só a instrução manual e o link |
+| `UPDATE_WEBHOOK_SECRET` | vazio | Mesmo valor do `UPDATE_HOOK_SECRET` do receptor (≥ 32 caracteres, sem espaço nas pontas). Os dois vazios ou os dois preenchidos |
+| `UPDATE_WEBHOOK_ALLOW_HTTP` | `false` | `true` só se o receptor for alcançado em `http` dentro da rede do operador |
+
+Regras:
+
+- A consulta a `api.github.com` (porta 443) faz parte da saída de rede do container (ver pré-requisitos). Sem ela, o aviso não aparece; o app segue normal.
+- O webhook é `https` por padrão. Em `http`, todo endereço do destino precisa ser loopback, rede privada (RFC 1918 ou ULA) ou CGNAT `100.64.0.0/10` (ex.: Tailscale). Link-local (ex.: `169.254.x.x`, metadados de nuvem) é sempre recusado. IP literal é checado ao subir o app; nome é checado a cada chamada.
+- Sem redirecionamento: resposta 3xx do receptor é falha. Tempo total de 10 s.
+- A versão em execução é `APP_VERSION`, gravada na imagem pelo build da release. Imagem `dev` não consulta nada.
+- Só o admin vê o aviso e pede a atualização. O pedido só vale para a última release conhecida e mais nova que a versão em execução. Um segundo pedido dentro de 10 minutos recebe 409.
+- O estado do pedido fica na memória do processo: reiniciar o app o esquece. A atualização em si segue no receptor.
+
+### Receptor de referência e webhook (`infra/deploy-hook/`)
+
+- `infra/deploy-hook/receiver.py` é uma implementação de REFERÊNCIA (biblioteca padrão, roda no host): valida assinatura HMAC, janela de timestamp, nonce, repositório e tag; grava `APP_TAG` no `.env`, roda `docker compose pull` e `up -d`, espera o healthcheck e reverte para a tag anterior se falhar. O agente de deploy do dono pode adaptá-lo, desde que preserve as verificações. Contrato, configuração e exemplo de unidade systemd: `infra/deploy-hook/README.md`.
+- O receptor só aceita `POST /update`. Escuta em `127.0.0.1` por padrão.
+- No app, a chamada é configurada por `UPDATE_WEBHOOK_URL` e `UPDATE_WEBHOOK_SECRET` (tabela acima). O corpo e os cabeçalhos do POST (`X-Update-Timestamp`, `X-Update-Signature`) estão no README do receptor.
+
+### Passos manuais do dono (uma vez)
+
+1. **Primeira release.** Com a seção `## [0.1.0] - AAAA-MM-DD` já no `CHANGELOG.md` e o commit na `master`:
+
+   ```bash
+   git tag -a v0.1.0 -m "v0.1.0"
+   git push origin v0.1.0
+   ```
+
+   (Apenas descrição: nada disso é executado pelo CI nem por este guia.) Acompanhe em Actions.
+2. **Tornar o pacote público.** O primeiro push cria o pacote `biblioteca-pwa` no GHCR como PRIVADO, vinculado ao repositório. Em GitHub > seu perfil > Packages > `biblioteca-pwa` > Package settings > Danger Zone > Change visibility > Public. Sem isso, o servidor não consegue fazer `pull` sem login.
+3. **Se mantiver privado**, no servidor: crie um token (classic) só com o escopo `read:packages` e rode `echo <token> | docker login ghcr.io -u <usuario> --password-stdin`. Guarde o token no cofre de senhas, nunca no repositório.
+4. Ative, nas configurações do repositório, o alerta de vulnerabilidades privado ("Private vulnerability reporting"), usado pelo `SECURITY.md`.
 
 ## 6. Backup e restauração de `/data` (SQLite em modo WAL)
 
@@ -229,7 +311,7 @@ Para abrir em `http://localhost:8000` sem proxy: `COOKIE_SECURE=false`, `FORWARD
 | Série sem capa depois de restaurar | `covers/` não estava no backup | O app mostra a capa do primeiro capítulo; para baixar de novo: `$DC exec backend python -m app.cli enrich --force` |
 | `scan` com `errors` e motivo `CorruptArchive` | CBZ com estrutura ZIP danificada na origem | Corrija ou substitua o arquivo e rode `scan` de novo (seção 4) |
 | `enrich`: saída com "disabled" ou código 1 e erro de metadados desligados | `METADATA_ENABLED=false` | Proposital; para buscar metadados, defina `true` no `.env` e recrie com `$DC up -d` |
-| `enrich` com `errors` altos, ou metadados nunca chegam | Sem saída https para os 7 hosts da allowlist (política de firewall ou DNS) | Confira a saída do container (seção 1, "Pré-requisitos") ou desligue com `METADATA_ENABLED=false` |
+| `enrich` com `errors` altos, ou metadados nunca chegam | Sem saída https para os hosts da allowlist de metadados (política de firewall ou DNS) | Confira a saída do container (seção 1, "Pré-requisitos") ou desligue com `METADATA_ENABLED=false` |
 | Tradução ficou em inglês | Cota anônima do MyMemory estourada (cerca de 5 000 caracteres por dia por IP) | Espere a cota voltar; as sinopses restantes ficam em inglês até lá |
 | Página antiga depois de atualizar | Service worker em cache | Recarregar duas vezes ou fechar o PWA; `sw.js` e `index.html` sempre revalidam |
 

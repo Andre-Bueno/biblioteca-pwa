@@ -45,7 +45,7 @@ def _page_index(raw: str) -> int:
     return int(raw)
 
 
-def _etag_matches(header_value: str | None, etag: str) -> bool:
+def etag_matches(header_value: str | None, etag: str) -> bool:
     """If-None-Match (weak comparison, RFC 9110 13.1.2)."""
     if not header_value or len(header_value) > 2048:
         return False
@@ -65,7 +65,7 @@ def image_response(request: Request, page: Page) -> Response:
         # Asks the security-headers middleware for the (allowlisted) private cache policy.
         CACHE_MARKER_HEADER: CACHE_MARKER_PRIVATE_IMAGE,
     }
-    if _etag_matches(request.headers.get("if-none-match"), etag):
+    if etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=headers)
     return Response(content=page.data, media_type=page.media_type, headers=headers)
 

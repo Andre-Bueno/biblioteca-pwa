@@ -1,3 +1,8 @@
+import type { ItemType } from '../items';
+
+/** What a series holds: only manga chapters, only books, or both. */
+export type SeriesKind = 'manga' | 'book' | 'mixed';
+
 export type MetadataState = 'none' | 'matched' | 'manual' | 'not_found';
 export type DescriptionLang = 'pt-br' | 'pt' | 'en' | null;
 
@@ -32,6 +37,8 @@ export interface SeriesSummary {
   id: string;
   title: string;
   chapter_count: number;
+  /** Absent on older servers (then it reads as manga: "capítulos"). */
+  kind?: SeriesKind;
   has_cover: boolean;
   description: string | null;
   description_lang: DescriptionLang;
@@ -58,6 +65,8 @@ export interface Chapter {
   title: string;
   number: number | null;
   page_count: number | null;
+  /** Present when the server tells books from manga; absent on older servers. */
+  type?: ItemType;
   progress: ChapterProgress | null;
 }
 
@@ -73,6 +82,8 @@ export interface SeriesDetail {
   source: { name: string; url: string | null } | null;
   metadata_state: MetadataState;
   chapter_count: number;
+  /** Absent on older servers: derived from the chapters (see `seriesKindOf`). */
+  kind?: SeriesKind;
   has_cover: boolean;
   chapters: Chapter[];
   continue: { item_id: string; locator: number } | null;
@@ -87,6 +98,27 @@ export function safeHttpsUrl(value: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/** A volume (EPUB) is not counted in pages: it is labelled "Livro" and shows progress in %. */
+export function isBookChapter(chapter: Pick<Chapter, 'type' | 'page_count'>): boolean {
+  if (chapter.type !== undefined) return chapter.type === 'book';
+  return !chapter.page_count; // older servers: no page count means not a manga
+}
+
+/** The server's `kind` wins; older servers send none, so it is derived from the chapters. */
+export function seriesKindOf(series: Pick<SeriesDetail, 'kind' | 'chapters'>): SeriesKind {
+  if (series.kind) return series.kind;
+  const books = series.chapters.filter(isBookChapter).length;
+  if (series.chapters.length > 0 && books === series.chapters.length) return 'book';
+  return books > 0 ? 'mixed' : 'manga';
+}
+
+/** "3 livros" / "3 itens" / "3 capítulos" (manga, and servers that send no `kind`). */
+export function seriesCountLabel(count: number, kind: SeriesKind | undefined): string {
+  if (kind === 'book') return count === 1 ? '1 livro' : `${count} livros`;
+  if (kind === 'mixed') return count === 1 ? '1 item' : `${count} itens`;
+  return count === 1 ? '1 capítulo' : `${count} capítulos`;
 }
 
 /** Neighbours of a chapter in the order the server sent. */

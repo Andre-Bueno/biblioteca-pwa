@@ -26,6 +26,32 @@ def library_env(
     return env, lib
 
 
+def book_env(
+    db_url: str,
+    tmp_path: Path,
+    books: dict[str, bytes],
+    *,
+    scan: bool = True,
+    gateway: HttpGateway | None = None,
+    **overrides: object,
+) -> tuple[Env, Path]:
+    """App over a temporary library made only of `books` (relative path -> file bytes). Users:
+    alice and bob (users), root (admin)."""
+    lib = tmp_path / "book_lib"
+    lib.mkdir()
+    for rel, data in books.items():
+        target = lib / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    env = Env(db_url, gateway=gateway, LIBRARY_PATH=lib, DATA_DIR=tmp_path / "data", **overrides)
+    env.create_user("alice", PASSWORD)
+    env.create_user("bob", PASSWORD)
+    env.create_user(ADMIN, PASSWORD, role=Role.ADMIN)
+    if scan:
+        env.container.scan_runner.run()
+    return env, lib
+
+
 def logged_in(env: Env, username: str = "alice") -> ApiClient:
     client = env.client()
     assert client.login(username, PASSWORD).status_code == 200

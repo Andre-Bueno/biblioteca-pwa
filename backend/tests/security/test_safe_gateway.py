@@ -185,7 +185,7 @@ def test_refused_urls_never_reach_the_network(url: str) -> None:
     assert rig.hosts == [] and rig.requests == []
 
 
-def test_the_allowlist_is_exactly_the_seven_known_hosts() -> None:
+def test_the_allowlist_is_exactly_the_eight_known_hosts() -> None:
     assert {
         "api.mangadex.org",
         "uploads.mangadex.org",
@@ -194,7 +194,9 @@ def test_the_allowlist_is_exactly_the_seven_known_hosts() -> None:
         "pt.wikipedia.org",
         "www.googleapis.com",
         "api.mymemory.translated.net",
+        "api.github.com",
     } == ALLOWED_HOSTS
+    assert len(ALLOWED_HOSTS) == 8
     for host in sorted(ALLOWED_HOSTS):
         assert SafeGateway.check_url(f"https://{host}/p?q=1") == (host, "/p?q=1")
     assert SafeGateway.check_url("https://API.MangaDex.org:443") == ("api.mangadex.org", "/")

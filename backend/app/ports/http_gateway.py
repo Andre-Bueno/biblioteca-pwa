@@ -3,6 +3,7 @@
 from typing import Protocol
 
 from app.domain.metadata import FetchedImage
+from app.domain.release import ConditionalJson
 
 
 class HttpGateway(Protocol):
@@ -23,4 +24,10 @@ class HttpGateway(Protocol):
 
     def get_image(self, url: str) -> FetchedImage:
         """GET an image (jpeg, png or webp, checked by magic bytes)."""
+        ...
+
+    def get_json_conditional(self, url: str, etag: str | None) -> ConditionalJson:
+        """GET a JSON document with `If-None-Match: <etag>` (when given). Returns the status
+        (200, 304, or a throttling 403/429 with its rate-limit headers) instead of raising for
+        those; every other failure is an `ExternalFetchError`. Short timeouts, never waits long."""
         ...

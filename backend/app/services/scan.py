@@ -156,7 +156,7 @@ def _sync_entry(
             Item(
                 id=str(uuid.uuid4()),
                 type=extractor.item_type,
-                title=_title_from(entry.rel_path, entry.is_dir),
+                title=meta.title or _title_from(entry.rel_path, entry.is_dir),
                 rel_path=entry.rel_path,
                 format=extractor.format,
                 page_count=meta.page_count,
@@ -173,6 +173,7 @@ def _sync_entry(
             replace(
                 existing,
                 type=extractor.item_type,
+                title=meta.title or existing.title,  # a book keeps the title from its metadata
                 format=extractor.format,
                 page_count=meta.page_count,
                 size=entry.size,

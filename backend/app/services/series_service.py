@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.domain.errors import DomainError, ItemNotFound, PageOutOfRange, ResourceBusy
-from app.domain.item import Item
+from app.domain.item import Item, ItemType
 from app.domain.library import Page
 from app.domain.progress import Progress
 from app.domain.series import (
@@ -49,6 +49,13 @@ class SeriesDetail:
     continue_point: ContinuePoint | None
 
 
+def _display_title(item: Item) -> str:
+    """A book shows its own (OPF) title; image chapters show `Capitulo N` from the number."""
+    if item.type is ItemType.BOOK:
+        return item.title
+    return chapter_title(item.chapter_number, item.title)
+
+
 class SeriesService:
     def __init__(self, series: SeriesRepository, progress: ProgressRepository) -> None:
         self._series = series
@@ -75,10 +82,7 @@ class SeriesService:
         progress = self._progress.list_for_items(user_id, [c.id for c in chapters])
         return SeriesDetail(
             series=series,
-            chapters=[
-                ChapterView(c, chapter_title(c.chapter_number, c.title), progress.get(c.id))
-                for c in chapters
-            ],
+            chapters=[ChapterView(c, _display_title(c), progress.get(c.id)) for c in chapters],
             continue_point=pick_continue(chapters, progress),
         )
 

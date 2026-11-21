@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.body_limit import BodySizeLimitMiddleware
+from app.api.books import router as books_router
 from app.api.csrf import CsrfMiddleware, CsrfTokenSigner
 from app.api.errors import validation_error_handler
 from app.api.health import router as health_router
@@ -19,6 +20,7 @@ from app.api.rate_limit import RateLimitMiddleware
 from app.api.security_headers import SecurityHeadersMiddleware
 from app.api.series import router as series_router
 from app.api.spa import install_spa
+from app.api.system import router as system_router
 from app.composition import Container, build_rate_limiters
 from app.core.config import Settings, get_settings
 from app.core.keys import LABEL_CSRF, derive_key
@@ -61,10 +63,12 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(items_router)
+    app.include_router(books_router)
     app.include_router(series_router)
     app.include_router(library_router)
     app.include_router(progress_router)
     app.include_router(preferences_router)
+    app.include_router(system_router)
 
     # Middleware order: the LAST one added is the outermost. Request path:
     # SecurityHeaders -> CORS -> RateLimit -> BodyLimit -> CSRF -> routes. Security headers wrap

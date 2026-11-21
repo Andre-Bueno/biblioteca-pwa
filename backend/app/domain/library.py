@@ -22,6 +22,10 @@ class ItemMetadata:
     """Result of inspecting a file: what the extractor learned about it."""
 
     page_count: int
+    # Display title found inside the file (EPUB: OPF `dc:title`), already sanitized; None = use
+    # the file name. `authors` is informational (not stored).
+    title: str | None = None
+    authors: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

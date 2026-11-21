@@ -12,6 +12,8 @@ vi.mock('../../src/shared/api-client', async (importOriginal) => {
 
 const prefPuts = () => fakeApi.callsTo('PUT', '/api/v1/me/preferences');
 
+const FULL = { book_font_scale: 100, book_theme: 'auto' };
+
 describe('settings: preferences and theme', () => {
   beforeEach(() => {
     fakeApi.reset();
@@ -38,8 +40,8 @@ describe('settings: preferences and theme', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByTestId('theme-toggle-dark'));
     expect(document.documentElement.dataset.theme).toBe('dark'); // before the server answers
-    expect(prefPuts()[0]!.body).toEqual({ theme: 'dark', reading_direction: 'rtl' });
-    release({ theme: 'dark', reading_direction: 'rtl' });
+    expect(prefPuts()[0]!.body).toEqual({ ...FULL, theme: 'dark', reading_direction: 'rtl' });
+    release({ ...FULL, theme: 'dark', reading_direction: 'rtl' });
   });
 
   it('saves the reading direction and shows it selected', async () => {
@@ -54,7 +56,11 @@ describe('settings: preferences and theme', () => {
       'aria-pressed',
       'true',
     );
-    expect(prefPuts().at(-1)!.body).toEqual({ theme: 'system', reading_direction: 'vertical' });
+    expect(prefPuts().at(-1)!.body).toEqual({
+      ...FULL,
+      theme: 'system',
+      reading_direction: 'vertical',
+    });
   });
 
   it('warns when saving fails but keeps the local choice', async () => {

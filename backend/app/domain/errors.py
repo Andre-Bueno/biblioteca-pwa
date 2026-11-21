@@ -71,3 +71,19 @@ class InvalidMetadata(DomainError):  # noqa: N818
 
 class EnrichAlreadyRunning(DomainError):  # noqa: N818
     """A metadata enrichment run is already in progress."""
+
+
+class UpdateNotConfigured(DomainError):  # noqa: N818
+    """No update webhook is configured (or the version check is off)."""
+
+
+class UpdateNotAvailable(DomainError):  # noqa: N818
+    """The tag asked for is not the known latest release, or there is nothing to update to."""
+
+
+class UpdateAlreadyRequested(DomainError):  # noqa: N818
+    """An update was requested a moment ago."""
+
+
+class UpdateNotifyFailed(DomainError):  # noqa: N818
+    """The webhook did not accept the request. Deliberately carries no URL, host or body."""

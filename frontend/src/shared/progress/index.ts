@@ -1,4 +1,5 @@
 export { deleteProgress, getProgress, listContinue, putProgress } from './api';
+export { flushAllProgress, registerProgressFlusher } from './flush-registry';
 export { createProgressSaver } from './progress-saver';
 export type { ProgressSaver, ProgressSaverOptions } from './progress-saver';
 export { useProgressSaver } from './useProgressSaver';

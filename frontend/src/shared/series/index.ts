@@ -10,7 +10,13 @@ export {
   startEnrich,
 } from './api';
 export type { ListSeriesParams } from './api';
-export { chapterNeighbours, safeHttpsUrl } from './types';
+export {
+  chapterNeighbours,
+  isBookChapter,
+  safeHttpsUrl,
+  seriesCountLabel,
+  seriesKindOf,
+} from './types';
 export type {
   Chapter,
   ChapterProgress,
@@ -22,8 +28,11 @@ export type {
   MetadataCandidate,
   MetadataState,
   SeriesDetail,
+  SeriesKind,
   SeriesList,
   SeriesSummary,
 } from './types';
+export { useReaderNav } from './useReaderNav';
+export type { ReaderNav } from './useReaderNav';
 export { useSeriesDetail } from './useSeriesDetail';
 export type { SeriesDetailState } from './useSeriesDetail';

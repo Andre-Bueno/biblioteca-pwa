@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { putProgress } from './api';
+import { registerProgressFlusher } from './flush-registry';
 import { createProgressSaver, type ProgressSaver } from './progress-saver';
 import type { SaveStatus } from './types';
 
@@ -32,7 +33,9 @@ export function useProgressSaver(itemId: string): UseProgressSaver {
     const onPageHide = () => void saver.flush(true);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', onPageHide);
+    const unregister = registerProgressFlusher(() => saver.flush(false));
     return () => {
+      unregister();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', onPageHide);
       void saver.flush(true); // leaving the reader: send what is pending

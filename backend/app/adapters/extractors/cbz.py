@@ -3,8 +3,6 @@
 ComicInfo.xml is intentionally ignored (no defusedxml available; see report).
 """
 
-import re
-import stat as stat_mod
 import zipfile
 import zlib
 from collections.abc import Iterator
@@ -18,36 +16,18 @@ from app.adapters.extractors._common import (
     default_read_gate,
     has_image_extension,
     sniff_image,
+    validate_zip,
 )
 from app.adapters.gate import BoundedGate
 from app.domain.errors import (
     ArchiveLimitExceeded,
     CorruptArchive,
     PageOutOfRange,
-    UnsafePath,
     UnsupportedFormat,
 )
 from app.domain.item import ItemType
 from app.domain.library import ExtractorLimits, ItemMetadata, Page, natural_key
 from app.ports.storage import StorageBackend, StorageEntry
-
-# Compression ratio only matters for entries big enough to be a bomb; tiny ones are
-# bounded by max_total_uncompressed_bytes anyway.
-RATIO_MIN_BYTES = 64 * 1024
-
-_DRIVE = re.compile(r"^[A-Za-z]:")
-
-
-def _check_member_name(name: str) -> None:
-    if (
-        not name
-        or "\x00" in name
-        or "\\" in name
-        or name.startswith("/")
-        or _DRIVE.match(name)
-        or ".." in name.split("/")
-    ):
-        raise UnsafePath
 
 
 class CbzExtractor:
@@ -98,29 +78,7 @@ class CbzExtractor:
             fh.close()
 
     def _validate(self, zf: zipfile.ZipFile) -> None:
-        infos = zf.infolist()
-        limits = self._limits
-        if len(infos) > limits.max_entries:
-            raise ArchiveLimitExceeded
-        total = 0
-        for info in infos:
-            _check_member_name(info.filename)
-            if info.flag_bits & 0x1:
-                raise UnsupportedFormat  # encrypted
-            if info.create_system == 3 and stat_mod.S_ISLNK(info.external_attr >> 16):
-                raise UnsafePath  # symlink inside the archive
-            if info.is_dir():
-                continue
-            if info.file_size > limits.max_page_bytes and has_image_extension(info.filename):
-                raise ArchiveLimitExceeded
-            total += info.file_size
-            if total > limits.max_total_uncompressed_bytes:
-                raise ArchiveLimitExceeded
-            if info.file_size >= RATIO_MIN_BYTES and (
-                info.compress_size == 0
-                or info.file_size / info.compress_size > limits.max_compression_ratio
-            ):
-                raise ArchiveLimitExceeded
+        validate_zip(zf, self._limits, size_limited=has_image_extension)
 
     def _build_index(self, zf: zipfile.ZipFile) -> tuple[tuple[int, str], ...]:
         """Sorted (position, media type) of every real image. Opens EVERY candidate: done once

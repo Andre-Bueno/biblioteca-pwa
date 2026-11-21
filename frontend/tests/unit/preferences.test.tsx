@@ -14,6 +14,9 @@ vi.mock('../../src/shared/api-client', async (importOriginal) => {
 const puts = () => fakeApi.callsTo('PUT', '/api/v1/me/preferences');
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// What the server holds besides theme/direction: it must survive every PUT.
+const SERVER = { book_font_scale: 130, book_theme: 'sepia' };
+
 describe('preferences: never overwrite the server with defaults', () => {
   beforeEach(() => {
     fakeApi.reset();
@@ -25,7 +28,7 @@ describe('preferences: never overwrite the server with defaults', () => {
     fakeApi.on('GET', '/api/v1/me/preferences', () => {
       getAttempts += 1;
       if (getAttempts === 1) throw new ApiError(503, 'busy');
-      return { theme: 'light', reading_direction: 'vertical' };
+      return { ...SERVER, theme: 'light', reading_direction: 'vertical' };
     });
     renderApp('/ajustes');
     const user = userEvent.setup();
@@ -39,7 +42,7 @@ describe('preferences: never overwrite the server with defaults', () => {
     await user.click(screen.getByRole('button', { name: /tentar de novo/i }));
     await waitFor(() => expect(puts()).toHaveLength(1));
     // Full object: the user's edit on top of the SERVER data (vertical stays vertical).
-    expect(puts()[0]!.body).toEqual({ theme: 'dark', reading_direction: 'vertical' });
+    expect(puts()[0]!.body).toEqual({ ...SERVER, theme: 'dark', reading_direction: 'vertical' });
     await waitFor(() =>
       expect(screen.getByTestId('reading-direction-vertical')).toHaveAttribute(
         'aria-pressed',
@@ -60,9 +63,9 @@ describe('preferences: never overwrite the server with defaults', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByTestId('theme-toggle-dark'));
     expect(puts()).toHaveLength(0);
-    release({ theme: 'light', reading_direction: 'vertical' });
+    release({ ...SERVER, theme: 'light', reading_direction: 'vertical' });
     await waitFor(() => expect(puts()).toHaveLength(1));
-    expect(puts()[0]!.body).toEqual({ theme: 'dark', reading_direction: 'vertical' });
+    expect(puts()[0]!.body).toEqual({ ...SERVER, theme: 'dark', reading_direction: 'vertical' });
   });
 
   it('serializes PUTs: one in flight, in order, the last value wins', async () => {

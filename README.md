@@ -4,7 +4,7 @@ PWA para ler mangás (CBZ, CBR, pasta de imagens), livros (EPUB) e PDF. Instalá
 
 Stack: Python/FastAPI (backend) e React/TypeScript/Vite (frontend).
 
-Status (2026-11-21): Fase 1 (backend) e Fase 2 (login, biblioteca e tema) entregues; leitor de mangá com progresso (MVP) entregue; agrupamento em séries por pasta e metadados de fontes públicas (capa e descrição) entregues (ADR 0014 a 0016); Fase 3 parcial. Um único container serve API e PWA (ver [docs/DEPLOY.md](docs/DEPLOY.md)). Pendências em [docs/PLANO.md](docs/PLANO.md) §9 e [docs/maps/SECURITY_MAP.md](docs/maps/SECURITY_MAP.md). Roteiro em [docs/PLANO.md](docs/PLANO.md).
+Status (2026-11-21): Fase 1 (backend) e Fase 2 (login, biblioteca e tema) entregues; leitor de mangá com progresso (MVP) entregue; agrupamento em séries por pasta e metadados de fontes públicas (capa e descrição) entregues (ADR 0014 a 0016); leitor de EPUB, aviso e atualização por release, e CI/release no GitHub (ADR 0017 e 0018 propostos, aguardando aceite do dono); Fase 3 parcial; PDF e CBR pendentes. Um único container serve API e PWA (ver [docs/DEPLOY.md](docs/DEPLOY.md)). Pendências em [docs/PLANO.md](docs/PLANO.md) §9 e [docs/maps/SECURITY_MAP.md](docs/maps/SECURITY_MAP.md). Roteiro em [docs/PLANO.md](docs/PLANO.md).
 
 ## Organização
 
@@ -13,7 +13,8 @@ Status (2026-11-21): Fase 1 (backend) e Fase 2 (login, biblioteca e tema) entreg
 | `backend/` | API REST `/api/v1` em Hexagonal (Ports & Adapters) |
 | `frontend/` | PWA organizada por feature (login, biblioteca, séries, leitor de mangá, ajustes) |
 | `docs/` | Plano, mapas, ADRs, histórico, segurança e guia de deploy (`docs/DEPLOY.md`) |
-| `infra/` | Dockerfile, entrypoint e compose do app |
+| `infra/` | Dockerfile, entrypoint e compose do app; receptor de referência do webhook de atualização (`infra/deploy-hook/`) |
+| `.github/` | CI (`ci.yml`), release por tag (`release.yml`), dependabot e script de notas de release |
 | `scripts/` | `check.ps1` e `check.sh`: lint, tipos, testes, auditoria de dependências e scan de segredos (ver `scripts/README.md`) |
 
 ## Por onde começar

@@ -3,6 +3,11 @@
 #   docker compose -f infra/compose.example.yml --env-file .env up -d
 services:
   backend:
+    # Published by the release workflow (GHCR). The server can either `pull` this image or `build`
+    # it from the sources; both end up with the same name. APP_TAG (in .env) picks the release.
+    image: ghcr.io/andre-bueno/biblioteca-pwa:${APP_TAG:-latest}
+    # missing: `up` pulls only when the image is not on the host yet (updates use `pull` first).
+    pull_policy: missing
     build:
       context: ..
       dockerfile: infra/Dockerfile
@@ -46,6 +51,14 @@ services:
       METADATA_LANGUAGES: ${METADATA_LANGUAGES:-pt-br,pt,en}
       METADATA_HTTP_TIMEOUT_SECONDS: ${METADATA_HTTP_TIMEOUT_SECONDS:-15}
       METADATA_MAX_PER_RUN: ${METADATA_MAX_PER_RUN:-25}
+      # New-release notice for admins + approval by signed webhook (see .env.example). The app never
+      # touches Docker; the URL and secret are configuration only. Empty = no webhook.
+      UPDATE_CHECK_ENABLED: ${UPDATE_CHECK_ENABLED:-true}
+      UPDATE_REPOSITORY: ${UPDATE_REPOSITORY:-Andre-Bueno/biblioteca-pwa}
+      UPDATE_CHECK_INTERVAL_HOURS: ${UPDATE_CHECK_INTERVAL_HOURS:-6}
+      UPDATE_WEBHOOK_URL: ${UPDATE_WEBHOOK_URL:-}
+      UPDATE_WEBHOOK_SECRET: ${UPDATE_WEBHOOK_SECRET:-}
+      UPDATE_WEBHOOK_ALLOW_HTTP: ${UPDATE_WEBHOOK_ALLOW_HTTP:-false}
       DATA_DIR: /data
       LIBRARY_PATH: /library
       DATABASE_URL: sqlite:////data/app.db

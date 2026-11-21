@@ -12,8 +12,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.adapters.extractors.registry import build_extractors
+from app.adapters.extractors.registry import book_readers, build_extractors
 from app.adapters.http.safe_gateway import DisabledGateway, SafeGateway
+from app.adapters.http.webhook_notifier import WebhookNotifier
 from app.adapters.metadata.anilist import AniListProvider
 from app.adapters.metadata.googlebooks import GoogleBooksProvider
 from app.adapters.metadata.mangadex import MangaDexProvider
@@ -41,6 +42,7 @@ from app.domain.errors import LibraryUnavailable
 from app.domain.library import ExtractorLimits, ScanReport
 from app.domain.lockout import LockoutPolicy
 from app.domain.metadata import EnrichReport
+from app.ports.book_reader import BookReader
 from app.ports.clock import Clock
 from app.ports.cover_store import CoverStore
 from app.ports.extractor import Extractor
@@ -52,6 +54,7 @@ from app.ports.progress_repository import ProgressRepository
 from app.ports.rate_limiter import RateLimiter
 from app.ports.series_repository import SeriesRepository
 from app.ports.storage import StorageBackend
+from app.ports.update_notifier import UpdateNotifier
 from app.services.auth_service import AuthConfig, AuthService
 from app.services.enrich_runner import EnrichRunner
 from app.services.metadata_service import MetadataConfig, MetadataService
@@ -60,6 +63,7 @@ from app.services.progress_service import ProgressService
 from app.services.scan import ProgressCallback, scan_library
 from app.services.scan_runner import ScanRunner
 from app.services.series_service import SeriesService
+from app.services.update_service import UpdateConfig, UpdateService
 from app.services.user_service import UserService
 
 CANDIDATES_PER_MINUTE = 10
@@ -195,6 +199,50 @@ class Container:
         )
 
     @_locked_cached_property
+    def update_check_limiter(self) -> RateLimiter:
+        """Per admin (key = user id): 3 forced release checks per minute."""
+        return TokenBucketRateLimiter(capacity=3, per_minute=3)
+
+    @_locked_cached_property
+    def update_gateway(self) -> HttpGateway:
+        """Outbound HTTP of the release check only. Independent of METADATA_ENABLED (it has its own
+        switch, UPDATE_CHECK_ENABLED) and of the metadata gateway's lock."""
+        if self._gateway is not None:
+            return self._gateway
+        if not self.settings.UPDATE_CHECK_ENABLED:
+            return DisabledGateway()
+        return SafeGateway()
+
+    @_locked_cached_property
+    def update_notifier(self) -> UpdateNotifier | None:
+        cfg = self.settings
+        if cfg.UPDATE_WEBHOOK_URL is None or cfg.UPDATE_WEBHOOK_SECRET is None:
+            return None
+        return WebhookNotifier(
+            cfg.UPDATE_WEBHOOK_URL,
+            cfg.UPDATE_WEBHOOK_SECRET.get_secret_value(),
+            allow_http=cfg.UPDATE_WEBHOOK_ALLOW_HTTP,
+        )
+
+    @_locked_cached_property
+    def update_service(self) -> UpdateService:
+        cfg = self.settings
+        notifier = self.update_notifier
+        return UpdateService(
+            self.update_gateway,
+            notifier,
+            SqlAlchemyAuditLog(self.session_factory, self.clock),
+            self.clock,
+            UpdateConfig(
+                current=cfg.APP_VERSION,
+                repository=cfg.UPDATE_REPOSITORY,
+                check_enabled=cfg.UPDATE_CHECK_ENABLED,
+                interval=timedelta(hours=cfg.UPDATE_CHECK_INTERVAL_HOURS),
+                webhook_configured=notifier is not None,
+            ),
+        )
+
+    @_locked_cached_property
     def preferences_service(self) -> PreferencesService:
         return PreferencesService(SqlAlchemyPreferencesRepository(self.session_factory))
 
@@ -217,6 +265,11 @@ class Container:
             max_compression_ratio=cfg.EXTRACTOR_MAX_COMPRESSION_RATIO,
         )
         return build_extractors(self.storage, limits)
+
+    @_locked_cached_property
+    def book_readers(self) -> list[BookReader]:
+        """The extractors that also read books (same instances as in `extractors`)."""
+        return book_readers(self.extractors)
 
     @_locked_cached_property
     def scan_runner(self) -> ScanRunner:

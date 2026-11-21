@@ -19,7 +19,28 @@ export interface ItemList {
   has_more: boolean;
 }
 
-/** Only manga (CBZ/folder) can be opened today; books and PDFs show "em breve". */
+/** Manga (CBZ/folder) and books (EPUB) can be opened; PDFs show "em breve". */
 export function isReadable(item: Pick<Item, 'type'>): boolean {
-  return item.type === 'manga';
+  return item.type === 'manga' || item.type === 'book';
+}
+
+export interface BookChapter {
+  index: number;
+  title: string;
+}
+
+export interface BookTocEntry {
+  title: string;
+  index: number;
+  anchor: string | null;
+}
+
+/** Structure of an EPUB. Every string is plain text (React escapes it). */
+export interface BookInfo {
+  title: string;
+  authors: string[];
+  language: string | null;
+  chapters: BookChapter[];
+  toc: BookTocEntry[];
+  has_cover: boolean;
 }

@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
-import { readerPath, seriesPath, type Item } from '../../../shared/items';
-import { chapterNeighbours, useSeriesDetail } from '../../../shared/series';
+import { readerPath, seriesPath, type Item } from '../items';
+import { chapterNeighbours } from './types';
+import { useSeriesDetail } from './useSeriesDetail';
 
 export interface ReaderNav {
   /** Where "back" goes: the series page when the chapter belongs to one, else the library. */

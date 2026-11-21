@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.metadata import MAX_DESCRIPTION_LENGTH, PROVIDER_LABELS
 from app.domain.progress import Progress
-from app.domain.series import Series, SeriesSummary, short_description
+from app.domain.series import Series, SeriesSummary, series_kind, short_description
 from app.services.metadata_service import CandidateView
 from app.services.series_service import ChapterView, SeriesDetail, SeriesPage
 
@@ -24,6 +24,7 @@ class SeriesItemOut(BaseModel):
 
     id: str
     title: str
+    kind: str  # "manga" | "book" | "mixed"
     chapter_count: int
     has_cover: bool
     description: str | None
@@ -36,6 +37,7 @@ class SeriesItemOut(BaseModel):
         return cls(
             id=s.series.id,
             title=s.series.title,
+            kind=s.kind,
             chapter_count=s.chapter_count,
             has_cover=s.has_cover,
             description=short_description(s.series.description),
@@ -79,15 +81,17 @@ class ChapterOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
+    type: str  # "manga" | "book" | "pdf"
     title: str
     number: float | None
-    page_count: int
+    page_count: int  # for a book: the number of chapters
     progress: ChapterProgressOut | None
 
     @classmethod
     def from_domain(cls, c: ChapterView) -> "ChapterOut":
         return cls(
             id=c.item.id,
+            type=c.item.type.value,
             title=c.title,
             number=c.item.chapter_number,
             page_count=c.item.page_count,
@@ -137,6 +141,7 @@ class SeriesOut(BaseModel):
 
     id: str
     title: str
+    kind: str  # "manga" | "book" | "mixed"
     description: str | None
     description_lang: str | None
     description_origin: str | None  # "source" | "translated" | "manual" | null
@@ -155,6 +160,7 @@ class SeriesOut(BaseModel):
         return cls(
             id=s.id,
             title=s.title,
+            kind=series_kind(c.item.type.value for c in d.chapters),
             description=s.description,
             description_lang=s.description_lang,
             description_origin=s.description_origin,

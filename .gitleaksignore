@@ -1,0 +1,11 @@
+# Falsos positivos conhecidos do gitleaks (valores FICTICIOS de teste/PoC, nao sao segredos).
+# Formato: fingerprint do gitleaks. Sao presos a linha: se a linha mudar, o scan acusa de novo
+# e a entrada deve ser revisada (nunca ignore um achado sem conferir que o valor e ficticio).
+
+# "wrong-guess-12345": senha errada de proposito no PoC de flood de login
+docs/security/poc/flood_login.py:generic-api-key:41
+4e9a87549b82d083012f0cea9de5f8205f6d3319:docs/security/poc/flood_login.py:generic-api-key:41
+
+# "short-key-1234": SECRET_KEY curta de proposito, o teste espera a recusa
+backend/tests/security/test_settings.py:generic-api-key:29
+72739013e78bfaf86537ce183b9ad2656d64d9d0:backend/tests/security/test_settings.py:generic-api-key:25

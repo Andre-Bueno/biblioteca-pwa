@@ -35,9 +35,23 @@ PRIVATE_IMAGE_CACHE_CONTROL = b"private, max-age=3600"
 _HEX = "[0-9a-fA-F]"
 _UUID = rf"{_HEX}{{8}}-{_HEX}{{4}}-{_HEX}{{4}}-{_HEX}{{4}}-{_HEX}{{12}}"
 _CACHEABLE_PATH = re.compile(
-    rf"/api/v1/(?:items/{_UUID}/(?:pages/[0-9]{{1,9}}|cover)|series/{_UUID}/cover)"
+    rf"/api/v1/(?:items/{_UUID}/(?:pages/[0-9]{{1,9}}|cover|book/res/[0-9]{{1,6}})"
+    rf"|series/{_UUID}/cover)"
 )
 _CACHEABLE_STATUSES = frozenset({200, 304})
+
+# The ONE other exception (ADR 0006/0010 style, see ADR of the EPUB reader): a book chapter is an
+# HTML document shown in a sandboxed iframe of the app, so it needs (a) its own CSP, tighter than
+# the global one for everything except framing (`frame-ancestors 'self'`), and (b) the same private
+# cache as images. Same two conditions as above, plus the status: the request is a GET on exactly
+# `/api/v1/items/<uuid>/book/chapters/<n>` AND the route set CACHE_MARKER_BOOK_CHAPTER; the CSP is
+# replaced only for a 200. No other path can ever receive this CSP, whatever it sends.
+CACHE_MARKER_BOOK_CHAPTER = "book-chapter"
+BOOK_CHAPTER_CSP = (
+    b"default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'; "
+    b"base-uri 'none'; form-action 'none'"
+)
+_BOOK_CHAPTER_PATH = re.compile(rf"/api/v1/items/{_UUID}/book/chapters/[0-9]{{1,6}}")
 
 _ERROR_BODY = json.dumps({"detail": "Internal Server Error"}).encode()
 
@@ -53,8 +67,9 @@ class SecurityHeadersMiddleware:
     CACHE_MARKER_HEADER): `Cache-Control: private, max-age=3600`, without Pragma.
 
     Design decision: these headers ALWAYS replace any header of the same name set by a
-    route. In particular the strict CSP cannot be relaxed per route; revisit this when the
-    EPUB/PDF reader needs a different policy (e.g. an opt-in per-route override).
+    route. In particular the strict CSP cannot be relaxed per route. The only exception is the
+    book chapter route (CACHE_MARKER_BOOK_CHAPTER): a fixed path regex, GET, status 200 and the
+    internal marker, and even then the middleware writes the CSP itself (BOOK_CHAPTER_CSP).
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -69,24 +84,33 @@ class SecurityHeadersMiddleware:
         path = scope.get("path", "")
         is_api = is_api_path(path)
         base = SECURITY_HEADERS | NO_STORE_HEADERS if is_api else SECURITY_HEADERS
-        may_cache = (
-            is_api and scope.get("method") == "GET" and _CACHEABLE_PATH.fullmatch(path) is not None
-        )
+        is_get = is_api and scope.get("method") == "GET"
+        may_cache = is_get and _CACHEABLE_PATH.fullmatch(path) is not None
+        is_chapter = is_get and _BOOK_CHAPTER_PATH.fullmatch(path) is not None
         marker_name = CACHE_MARKER_HEADER.encode()
 
         async def send_with_headers(message: Message) -> None:
             nonlocal started
             if message["type"] == "http.response.start":
                 started = True
-                marked = False
+                marker = b""
                 kept: list[tuple[bytes, bytes]] = []
                 for key, value in message.get("headers", []):
                     if key.lower() == marker_name:
-                        marked = value == CACHE_MARKER_PRIVATE_IMAGE.encode()
+                        marker = value
                     else:
                         kept.append((key, value))
+                status = message["status"]
                 final = dict(base)
-                if may_cache and marked and message["status"] in _CACHEABLE_STATUSES:
+                if may_cache and marker == CACHE_MARKER_PRIVATE_IMAGE.encode():
+                    cacheable = status in _CACHEABLE_STATUSES
+                elif is_chapter and marker == CACHE_MARKER_BOOK_CHAPTER.encode():
+                    cacheable = status in _CACHEABLE_STATUSES
+                    if status == 200:
+                        final[b"content-security-policy"] = BOOK_CHAPTER_CSP
+                else:
+                    cacheable = False
+                if cacheable:
                     del final[b"pragma"]
                     final[b"cache-control"] = PRIVATE_IMAGE_CACHE_CONTROL
                 drop = set(final) | ({b"pragma"} if is_api else set())

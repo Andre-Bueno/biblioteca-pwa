@@ -157,12 +157,23 @@ def test_removed_item_disappears_from_continue_but_progress_survives(
 def test_preferences_defaults_and_update(db_url: str, tmp_path: Path) -> None:
     env, _ = library_env(db_url, tmp_path, scan=False)
     alice = logged_in(env)
-    assert alice.get("/api/v1/me/preferences").json() == {
-        "theme": "system",
-        "reading_direction": "rtl",
-    }
-    saved = {"theme": "dark", "reading_direction": "vertical"}
-    assert alice.put("/api/v1/me/preferences", saved).json() == saved
+    defaults = {"book_font_scale": 100, "book_theme": "auto"}
+    assert (
+        alice.get("/api/v1/me/preferences").json()
+        == {
+            "theme": "system",
+            "reading_direction": "rtl",
+        }
+        | defaults
+    )
+    saved = {"theme": "dark", "reading_direction": "vertical"} | defaults
+    # The pre-0008 body (two fields) still works and keeps the book settings.
+    assert (
+        alice.put(
+            "/api/v1/me/preferences", {"theme": "dark", "reading_direction": "vertical"}
+        ).json()
+        == saved
+    )
     assert alice.get("/api/v1/me/preferences").json() == saved
     again = logged_in(env)  # a new session still sees what was saved
     assert again.get("/api/v1/me/preferences").json() == saved
@@ -193,6 +204,8 @@ def test_invalid_preferences_are_a_generic_422_and_change_nothing(
     assert alice.get("/api/v1/me/preferences").json() == {
         "theme": "system",
         "reading_direction": "rtl",
+        "book_font_scale": 100,
+        "book_theme": "auto",
     }
 
 

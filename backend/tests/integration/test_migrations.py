@@ -515,3 +515,64 @@ def test_0007_adds_attribution_backfills_and_downgrades_keeping_data(db_url: str
         assert _columns(db_url, "series") >= ATTRIBUTION_COLUMNS
     finally:
         engine.dispose()
+
+
+BOOK_COLUMNS = {"book_font_scale", "book_theme"}
+
+
+def test_0008_adds_book_preferences_and_downgrades_keeping_users_and_sessions(db_url: str) -> None:
+    upgrade(db_url, "0007")
+    assert not BOOK_COLUMNS & _columns(db_url, "users")
+    engine = create_db_engine(db_url)
+    try:
+        with engine.begin() as conn:
+            _insert_user(conn, "u1", "alice")
+            conn.execute(
+                text(
+                    "INSERT INTO refresh_tokens (id, user_id, family_id, token_hash, created_at, "
+                    "expires_at) VALUES ('t', 'u1', 'f', :h, :t, :t)"
+                ),
+                {"h": "x" * 64, "t": NOW},
+            )
+            _insert_item(conn, "a", "Saga/Cap 1.cbz")
+            conn.execute(
+                text(
+                    "INSERT INTO reading_progress (user_id, item_id, locator, percent, finished, "
+                    "updated_at) VALUES ('u1', 'a', 1, 50.0, 0, :t)"
+                ),
+                {"t": NOW},
+            )
+        upgrade(db_url)
+        assert _columns(db_url, "users") >= BOOK_COLUMNS
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT theme_pref, reading_direction, book_font_scale, book_theme FROM users")
+            ).one()
+            assert tuple(row) == ("system", "rtl", 100, "auto")  # the existing user got defaults
+        for scale, theme in ((80, "auto"), (200, "light"), (150, "dark"), (100, "sepia")):
+            with engine.begin() as conn:
+                conn.execute(
+                    text("UPDATE users SET book_font_scale = :s, book_theme = :t"),
+                    {"s": scale, "t": theme},
+                )
+        for bad in (
+            "UPDATE users SET book_font_scale = 79",
+            "UPDATE users SET book_font_scale = 201",
+            "UPDATE users SET book_theme = 'neon'",
+            "UPDATE users SET book_font_scale = NULL",
+            "UPDATE users SET book_theme = NULL",
+        ):
+            with pytest.raises(IntegrityError), engine.begin() as conn:
+                conn.execute(text(bad))
+        downgrade(db_url, "0007")
+        assert not BOOK_COLUMNS & _columns(db_url, "users")
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT count(*) FROM users")).scalar_one() == 1
+            assert conn.execute(text("SELECT count(*) FROM refresh_tokens")).scalar_one() == 1
+            # no table rebuild: nothing was cascaded away
+            assert conn.execute(text("SELECT count(*) FROM reading_progress")).scalar_one() == 1
+            assert conn.execute(text("SELECT count(*) FROM items")).scalar_one() == 1
+        upgrade(db_url)
+        assert _columns(db_url, "users") >= BOOK_COLUMNS
+    finally:
+        engine.dispose()

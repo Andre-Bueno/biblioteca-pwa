@@ -1,12 +1,23 @@
 import { useState, type FormEvent } from 'react';
-import type { Chapter } from '../../../shared/series';
+import type { Chapter, SeriesKind } from '../../../shared/series';
 import { useChapterList } from '../hooks/useChapterList';
 import { ChapterRow } from './ChapterRow';
 
 const INVALID_MESSAGE = 'Digite um número de capítulo válido.';
 const NOTFOUND_MESSAGE = 'Capítulo não encontrado nesta série.';
 
-export function ChapterList({ chapters, seriesId }: { chapters: Chapter[]; seriesId: string }) {
+function headingFor(kind: SeriesKind): string {
+  if (kind === 'book') return 'Livros';
+  return kind === 'mixed' ? 'Itens' : 'Capítulos';
+}
+
+interface ChapterListProps {
+  chapters: Chapter[];
+  seriesId: string;
+  kind: SeriesKind;
+}
+
+export function ChapterList({ chapters, seriesId, kind }: ChapterListProps) {
   const list = useChapterList(chapters);
   const [input, setInput] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
@@ -21,7 +32,7 @@ export function ChapterList({ chapters, seriesId }: { chapters: Chapter[]; serie
   return (
     <section aria-labelledby="chapters-title" data-testid="chapter-section">
       <h2 id="chapters-title" className="series__section-title">
-        Capítulos
+        {headingFor(kind)}
       </h2>
       <form className="goto" onSubmit={submit} data-testid="goto-form">
         <input

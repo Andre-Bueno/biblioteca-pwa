@@ -9,7 +9,7 @@ folder creates a new series (the old one loses its chapters and disappears from 
 
 import posixpath
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -69,6 +69,7 @@ class SeriesSummary:
     has_cover: bool
     read_chapters: int
     last_item_id: str | None
+    kind: str = "manga"  # see `series_kind`
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +150,17 @@ def group_entry(rel_path: str, is_dir: bool) -> Grouping:
     if parent:
         return Grouping(parent, sanitize_title(posixpath.basename(parent)), number)
     return Grouping(None, _standalone_title(name), number)
+
+
+def series_kind(types: Iterable[str]) -> str:
+    """ "manga" or "book" when every active item has that type, else "mixed" (also for PDF and
+    for no items)."""
+    distinct = set(types)
+    if distinct == {"manga"}:
+        return "manga"
+    if distinct == {"book"}:
+        return "book"
+    return "mixed"
 
 
 def sort_title(title: str) -> str:

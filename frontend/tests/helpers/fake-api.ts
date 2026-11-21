@@ -142,7 +142,12 @@ export function makeSeriesDetail(overrides: Record<string, unknown> = {}) {
 /** Defaults for a signed-in user; tests override what they need. */
 export function signedIn() {
   fakeApi.on('GET', '/api/v1/auth/me', USER);
-  fakeApi.on('GET', '/api/v1/me/preferences', { theme: 'system', reading_direction: 'rtl' });
+  fakeApi.on('GET', '/api/v1/me/preferences', {
+    theme: 'system',
+    reading_direction: 'rtl',
+    book_font_scale: 100,
+    book_theme: 'auto',
+  });
   fakeApi.on('PUT', '/api/v1/me/preferences', ({ body }) => body);
   fakeApi.on('GET', '/api/v1/progress/continue', { items: [] });
   fakeApi.on('GET', '/api/v1/items', { items: [], limit: 30, offset: 0, has_more: false });

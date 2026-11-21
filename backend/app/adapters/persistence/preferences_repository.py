@@ -17,16 +17,19 @@ class SqlAlchemyPreferencesRepository:
         try:
             with self._session_factory() as session:
                 row = session.execute(
-                    select(UserRow.theme_pref, UserRow.reading_direction).where(
-                        UserRow.id == user_id
-                    )
+                    select(
+                        UserRow.theme_pref,
+                        UserRow.reading_direction,
+                        UserRow.book_font_scale,
+                        UserRow.book_theme,
+                    ).where(UserRow.id == user_id)
                 ).first()
-                return None if row is None else Preferences(row[0], row[1])
+                return None if row is None else Preferences(row[0], row[1], row[2], row[3])
         except SQLAlchemyError:
             raise DataAccessError("database error") from None
 
     def set(self, user_id: str, preferences: Preferences) -> bool:
-        # Targeted UPDATE of the two preference columns only (never the whole user).
+        # Targeted UPDATE of the four preference columns only (never the whole user).
         try:
             with self._session_factory() as session, session.begin():
                 result = session.execute(
@@ -35,6 +38,8 @@ class SqlAlchemyPreferencesRepository:
                     .values(
                         theme_pref=preferences.theme,
                         reading_direction=preferences.reading_direction,
+                        book_font_scale=preferences.book_font_scale,
+                        book_theme=preferences.book_theme,
                     )
                 )
                 return result.rowcount == 1  # type: ignore[attr-defined,no-any-return]
