@@ -145,6 +145,21 @@
   opacity: 0.6;
 }
 
+/* Position hint while the bars are hidden (full-screen reading). */
+.epub-pill {
+  position: absolute;
+  top: calc(0.5rem + env(safe-area-inset-top));
+  left: calc(0.5rem + env(safe-area-inset-left));
+  z-index: 9;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 .epub-toast {
   position: absolute;
   left: 50%;

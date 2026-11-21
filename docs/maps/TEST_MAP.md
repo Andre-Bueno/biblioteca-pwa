@@ -147,7 +147,8 @@ Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-0
 | `frontend/tests/unit/reader-epub.test.tsx` | 49 | Leitor EPUB: capítulos, progresso, painéis e preferências do livro |
 | `frontend/tests/unit/epub-locator.test.ts` | 17 | Locator de livro (`capítulo * 10000 + offset_bp`), lógica pura do leitor EPUB e sandbox de todos os iframes do leitor (página e tira) |
 | `frontend/tests/unit/epub-strip.test.ts` | 7 | Tira vertical do EPUB: janela de capítulos, posição, altura e conversão de posição |
-| `frontend/tests/unit/reader-epub-vertical.test.tsx` | 8 | Leitor EPUB em modo vertical: tira, janela montada, progresso e fim do livro |
+| `frontend/tests/unit/reader-epub-vertical.test.tsx` | 11 | Leitor EPUB em modo vertical: tira, janela montada, progresso e fim do livro; altura de capítulo com `html`/`body` 100%; barras em toque |
+| `frontend/tests/unit/auto-hide-controls.test.ts` | 3 | `useAutoHideControls`: oculto por padrão só em toque, auto-ocultar após 4 s, `keepAlive` e `paused`, com mouse não oculta |
 | `frontend/tests/unit/progress-saver.test.ts` | 8 | Debounce, um envio por vez, retry, `flush` com `keepalive`, `dispose` |
 | `frontend/tests/unit/preferences.test.tsx` | 3 | Não sobrescreve o servidor com padrões; edição com GET pendente é mesclada; PUTs em série |
 | `frontend/tests/unit/session-images.test.tsx` | 7 | Verificação de sessão na carga (só 401 = saiu); recuperação de imagem compartilhada, sem `/auth/me` |

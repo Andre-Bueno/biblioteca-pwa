@@ -75,6 +75,11 @@ function Reader({
           ☰
         </button>
       )}
+      {!reader.controlsVisible && (
+        <div className="epub-pill" aria-hidden="true" data-testid="epub-pill">
+          {reader.chapter + 1}/{reader.count} · {reader.percent}%
+        </div>
+      )}
       {reader.atEnd && <EpubEnd reader={reader} />}
       {reader.controlsVisible && <EpubControls reader={reader} />}
       {reader.panel === 'toc' && <TocDrawer reader={reader} />}

@@ -6,7 +6,14 @@ export function EpubControls({ reader }: { reader: EpubReaderState }) {
   const { nav, count, chapter } = reader;
   const title = reader.book.title || reader.item.title;
   return (
-    <div data-testid="reader-controls">
+    // Any touch, key or focus inside the bars restarts the auto-hide wait.
+    <div
+      data-testid="reader-controls"
+      onPointerDownCapture={reader.keepControlsAlive}
+      onFocusCapture={reader.keepControlsAlive}
+      onKeyDownCapture={reader.keepControlsAlive}
+      onChangeCapture={reader.keepControlsAlive}
+    >
       <header className="epub-bar epub-bar--top">
         <Link className="btn" to={nav.backTo} aria-label={nav.backLabel} data-testid="reader-back">
           ‹ Voltar

@@ -41,6 +41,22 @@ export function scrollTopForPosition(block: StripBlock, bp: number): number {
 }
 
 /**
+ * Lets the chapter document be as tall as its content. Books (manga/fixed layout) often ship
+ * `html, body { height: 100% }` (or `min-height`), which makes the `html` box exactly as tall as
+ * the iframe: the measure then only ever echoes the frame height, the chapter stays one screen
+ * tall and the page ends up clipped / scrolling inside its frame instead of flowing in the strip.
+ * Set through CSSOM (no script runs in the book, no stylesheet injected), so the sandbox and
+ * the chapter CSP are untouched. Percent heights of descendants resolve to `auto` afterwards.
+ */
+export function unlockDocumentHeight(doc: Document): void {
+  for (const element of [doc.documentElement, doc.body]) {
+    if (!element?.style) continue;
+    element.style.setProperty('height', 'auto', 'important');
+    element.style.setProperty('min-height', '0', 'important');
+  }
+}
+
+/**
  * Content height of a chapter document. The `html` box is as tall as its content (not as the
  * iframe), so the frame can also shrink; `scrollHeight` is only a fallback.
  */

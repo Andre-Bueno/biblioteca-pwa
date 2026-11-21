@@ -4,6 +4,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+## [0.1.3] - 2026-11-21
+
+### Added
+- Frontend: leitor EPUB com barras ocultas por padrão só em dispositivo de toque (`(hover: none) and (pointer: coarse)`): toque no centro alterna, auto-ocultar após 4 s, botão ☰ "Mostrar controles" e tecla `m`, indicador discreto de capítulo/total e % no canto (`shared/hooks/useAutoHideControls.ts`).
+
+### Fixed
+- Frontend: capítulos com `html`/`body` de altura 100% (comum em livros) no modo contínuo ficavam do tamanho da tela; a altura do documento é liberada via CSSOM antes de medir (`features/reader-epub/strip.ts#unlockDocumentHeight`).
+
 ## [0.1.2] - 2026-11-21
 
 ### Added

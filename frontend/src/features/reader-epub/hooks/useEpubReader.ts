@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { bookChapterUrl, type BookInfo, type Item } from '../../../shared/items';
+import { useAutoHideControls } from '../../../shared/hooks';
 import { usePreferences, type BookTheme } from '../../../shared/preferences';
 import { useProgressSaver } from '../../../shared/progress';
 import { useReaderNav } from '../../../shared/series';
@@ -42,7 +43,6 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
   });
   const [chapter, setChapter] = useState(initial.chapter);
   const [bp, setBp] = useState(initial.bp);
-  const [controlsVisible, setControlsVisible] = useState(true);
   const [panel, setPanel] = useState<Panel>('none');
   // "Vertical" reading direction = continuous scroll through the chapters (same preference as the
   // manga strip). The page remounts the reader when it changes.
@@ -51,6 +51,11 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
   const [loadFailedFrame, setLoadFailedFrame] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [sliderValue, setSliderValue] = useState<number | null>(null);
+  // Touch: full screen on open, tap toggles, hides after a few idle seconds (not while a panel
+  // is open or the slider is being dragged). Mouse: bars stay as before.
+  const controls = useAutoHideControls({ paused: panel !== 'none' || sliderValue !== null });
+  const controlsVisible = controls.visible;
+  const toggleControls = controls.toggle;
   const [jump, setJump] = useState<StripJump>(() => ({
     chapter: initial.chapter,
     bp: initial.bp,
@@ -114,7 +119,6 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
     [goToChapter, chapter, count],
   );
 
-  const toggleControls = useCallback(() => setControlsVisible((value) => !value), []);
   const closePanel = useCallback(() => setPanel('none'), []);
   const openPanel = useCallback((next: Exclude<Panel, 'none'>) => setPanel(next), []);
 
@@ -265,6 +269,7 @@ export function useEpubReader({ frameRef, item, book, savedLocator }: Params) {
     loading,
     frameFailed: loadFailedFrame,
     controlsVisible,
+    keepControlsAlive: controls.keepAlive,
     panel,
     sliderValue: sliderValue ?? chapter,
     fontScale,

@@ -129,6 +129,38 @@ describe('EPUB reader: continuous vertical mode', () => {
     );
   });
 
+  it('never flashes the single-frame reader while the preference is still loading', async () => {
+    signedIn();
+    fakeApi.on('GET', '/api/v1/items/bk-1', makeItem({ id: 'bk-1', type: 'book', format: 'epub' }));
+    fakeApi.on('GET', '/api/v1/items/bk-1/book', BOOK);
+    fakeApi.on('GET', '/api/v1/progress/bk-1', () => {
+      throw new ApiError(404, 'none');
+    });
+    fakeApi.on('PUT', '/api/v1/progress/bk-1', ({ body }: { body: unknown }) => ({
+      ...(body as object),
+    }));
+    fakeApi.on('GET', '/api/v1/me/preferences', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150)); // arrives after item and book
+      return PREFS;
+    });
+    renderApp('/ler/bk-1');
+    expect(screen.queryByTestId('epub-frame')).toBeNull();
+    expect(await screen.findByTestId('epub-strip')).toBeInTheDocument();
+    expect(screen.queryByTestId('epub-frame')).toBeNull();
+  });
+
+  it('lets a chapter that ships html/body height 100% shrink to its content (strip frames)', async () => {
+    setup(0);
+    await screen.findByTestId('epub-strip');
+    const frame = screen.getAllByTestId('strip-frame')[0] as HTMLIFrameElement;
+    const chapter = mountChapter(frame, { scrollHeight: PAGE_HEIGHT });
+    for (const element of [chapter.doc.documentElement, chapter.doc.body]) {
+      expect(element.style.getPropertyValue('height')).toBe('auto');
+      expect(element.style.getPropertyPriority('height')).toBe('important');
+      expect(element.style.getPropertyValue('min-height')).toMatch(/^0(px)?$/);
+    }
+  });
+
   it('keeps the single-frame reader for the other reading directions', async () => {
     signedIn();
     setup(null);
@@ -228,6 +260,38 @@ describe('EPUB reader: continuous vertical mode', () => {
     scrollTo(total() - 800);
     expect(await screen.findByTestId('book-finished')).toBeInTheDocument();
     await waitFor(() => expect(progressPuts().at(-1)?.body).toMatchObject({ locator: 1669999 }));
+  });
+
+  it('on a touch device the reader opens in full screen; tap and the reveal button bring the bars back', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('pointer: coarse'),
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    try {
+      setup(0);
+      const strip = await screen.findByTestId('epub-strip');
+      useScrollTop(strip);
+      expect(screen.queryByTestId('reader-controls')).toBeNull();
+      expect(screen.getByTestId('epub-pill')).toHaveTextContent('1/167');
+      const chapter = mountChapter(screen.getAllByTestId('strip-frame')[0] as HTMLIFrameElement, {
+        html: '<p>Texto</p>',
+        scrollHeight: PAGE_HEIGHT,
+      });
+      clickIn(chapter.doc.querySelector('p')!, 500);
+      expect(screen.getByTestId('reader-controls')).toBeInTheDocument();
+      expect(screen.queryByTestId('epub-pill')).toBeNull();
+      clickIn(chapter.doc.querySelector('p')!, 500);
+      const { default: userEvent } = await import('@testing-library/user-event');
+      await userEvent.setup().click(screen.getByTestId('show-controls'));
+      expect(screen.getByTestId('reader-controls')).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('a tap in the middle of a chapter toggles the controls; internal links jump chapters', async () => {

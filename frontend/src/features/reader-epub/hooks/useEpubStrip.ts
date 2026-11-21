@@ -6,6 +6,7 @@ import {
   measureFrameHeight,
   scrollTopForPosition,
   stripWindow,
+  unlockDocumentHeight,
   type StripBlock,
 } from '../strip';
 
@@ -213,6 +214,7 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
       };
       const measure = () => onFrameHeight(index, measureFrameHeight(doc));
 
+      unlockDocumentHeight(doc); // the frame must be able to shrink to the content
       measure();
       for (const image of Array.from(doc.images)) {
         if (image.complete) continue;

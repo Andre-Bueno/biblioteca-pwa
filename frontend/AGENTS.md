@@ -12,7 +12,7 @@ src/
 │              reader-pdf (esqueleto) · progress (só README)
 │   └─ <feature>/{components, hooks, index.ts}   (sem api.ts/types.ts por feature)
 └─ shared/     api-client · session · preferences · progress (com flush-registry) · items (com useItem)
-               · series (com useReaderNav) · system (versão e aviso) · pwa (estado do SW) · hooks · theme · ui
+               · series (com useReaderNav) · system (versão e aviso) · pwa (estado do SW) · hooks (com useAutoHideControls) · theme · ui
                offline (só README; único lugar com indexedDB)
 ```
 
@@ -37,6 +37,7 @@ Dados e chamadas HTTP ficam em `shared/` (`session/api.ts`, `preferences/api.ts`
 - Rede e armazenamento: `XMLHttpRequest`, `WebSocket` e `navigator.sendBeacon` só em `shared/api-client`; `indexedDB` só em `shared/offline`; acessos indiretos (alias, desestruturação, `window.navigator.sendBeacon`) não são detectados pelo ESLint e dependem de revisão.
 - Service worker: nunca cachear respostas autenticadas de forma que vazem entre usuários; versionar o cache; tokens fora de `localStorage` (usar cookie HttpOnly).
 - Leitores devem funcionar com toque (iOS Safari): gestos, safe-area, sem hover obrigatório.
+- Barras do leitor (EPUB): **ocultas por padrão só em dispositivo de toque** (`(hover: none) and (pointer: coarse)`, via `shared/hooks/useAutoHideControls`); auto-ocultam após 4 s sem interação. Com mouse ficam visíveis até alternar. Sempre há jeito de revelar sem toque (botão ☰ "Mostrar controles" e tecla `m`).
 - Séries (`features/series`, dados em `shared/series`): links externos só por `safeHttpsUrl` (https); qualquer outro valor vira texto. Descrição e títulos vindos da rede são texto puro (React escapa); proibido `dangerouslySetInnerHTML` e `innerHTML` nessas telas.
 - Atribuição: texto da Wikipédia exibe "CC BY-SA"; texto traduzido mostra o rótulo "tradução automática" e a fonte do original em inglês.
 - Painel de metadados (busca, escolher fonte, editar texto, remover) só para `role === 'admin'`; a busca ao vivo só é chamada por ação explícita do admin.
