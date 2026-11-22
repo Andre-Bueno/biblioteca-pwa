@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import {
-  bpFromScroll,
-  isCenterTap,
-  parseGotoHref,
-  scrollTopFromBp,
-  swipeChapterStep,
-} from '../locator';
+import { swipeIntent, tapIntent, type InputContext, type ReaderIntent } from '../../input';
+import { bpFromScroll, parseGotoHref, scrollTopFromBp } from '../locator';
 import { createPinchGuard, createReflowHold } from '../pinch';
 
 export interface FrameCallbacks {
@@ -16,9 +11,9 @@ export interface FrameCallbacks {
    */
   onPosition: (chapter: number, bp: number, report: boolean) => void;
   onGoto: (index: number, anchor: string | null) => void;
-  onToggleControls: () => void;
+  /** A swipe or a tap on the chapter, already mapped to an intent by the single input module. */
+  onIntent: (intent: ReaderIntent) => void;
   onKey: (event: KeyboardEvent) => void;
-  onSwipe: (step: 'chapter-prev' | 'chapter-next') => void;
   onLoaded: (ok: boolean) => void;
 }
 
@@ -32,6 +27,8 @@ interface Params {
   /** Anchor to scroll to on the next load (set by internal links / TOC), consumed on load. */
   anchorRef: RefObject<string | null>;
   callbacks: FrameCallbacks;
+  /** Reading mode and source: decides what a swipe or a tap means. */
+  input: InputContext;
 }
 
 interface Session {
@@ -52,14 +49,23 @@ function scrollerOf(doc: Document): HTMLElement {
  * watches the scroll, and turns clicks / taps / keys / swipes into reader actions.
  * The book HTML itself is never read into the app: only geometry and `a[href]` values.
  */
-export function useEpubFrame({ frameRef, chapter, positionRef, anchorRef, callbacks }: Params) {
+export function useEpubFrame({
+  frameRef,
+  chapter,
+  positionRef,
+  anchorRef,
+  callbacks,
+  input,
+}: Params) {
   const latest = useRef(callbacks);
+  const inputRef = useRef(input);
   const chapterRef = useRef(chapter);
   const session = useRef<Session>({ gesture: false, settled: false });
   const cleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     latest.current = callbacks;
+    inputRef.current = input;
     chapterRef.current = chapter;
   });
   useEffect(() => () => cleanup.current?.(), []);
@@ -212,8 +218,8 @@ export function useEpubFrame({ frameRef, chapter, positionRef, anchorRef, callba
       if (!touch || !start) return;
       if (pinch.blocked(Date.now())) return; // a pinch is never a page swipe
       if (win.getSelection()?.toString()) return;
-      const step = swipeChapterStep(touch.clientX - start.x, touch.clientY - start.y);
-      if (step) latest.current.onSwipe(step);
+      const swipe = swipeIntent(touch.clientX - start.x, touch.clientY - start.y, inputRef.current);
+      if (swipe) latest.current.onIntent(swipe);
     });
 
     listen(doc, 'keydown', (event: KeyboardEvent) => {
@@ -240,7 +246,8 @@ export function useEpubFrame({ frameRef, chapter, positionRef, anchorRef, callba
       }
       if (win.getSelection()?.toString()) return; // selecting text is not a tap
       if (pinch.blocked(Date.now())) return; // end of a pinch is not a tap
-      if (isCenterTap(event.clientX, win.innerWidth)) latest.current.onToggleControls();
+      const tap = tapIntent(event.clientX, win.innerWidth, inputRef.current);
+      if (tap) latest.current.onIntent(tap);
     });
 
     cleanup.current = () => {

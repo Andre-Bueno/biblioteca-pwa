@@ -1,6 +1,6 @@
 # TEST_MAP
 
-Estado: 2026-11-21. Funcionalidade → arquivos que existem no disco → lacunas.
+Estado: 2026-11-22. Funcionalidade → arquivos que existem no disco → lacunas.
 
 **Como as contagens foram obtidas:** backend = número de linhas `def test` por arquivo (grep no disco; parametrizados **não** expandidos). Frontend = linhas `it(`, `test(` ou `it.each(` por arquivo (grep; `it.each` conta como um bloco, não expandido). Infra e CI = `def test` em `infra/deploy-hook/` e `.github/scripts/`. Os resultados de execução (`scripts/check`, CI) são os informados pelo dono e pelo coordenador, não reexecutados aqui. Totais de contagem: backend 1122 funções em 95 arquivos; frontend 364 blocos em 28 arquivos (27 em `tests/unit`, 1 em `tests/regression`); infra e CI 59 funções em 2 arquivos.
 
@@ -144,10 +144,10 @@ Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-0
 | `frontend/tests/unit/reader.test.tsx` | 32 | Leitor de mangá: retomada, modos RTL/LTR/vertical, barras ocultas em toque, pílula "n / N", painel Aa (modo, sem fonte/tema), slider espelhado (dir=rtl), zoom, pré-carregamento, salvamento (debounce, `pagehide`, aba oculta, saída, falha com aviso) |
 | `frontend/tests/unit/reader-series.test.tsx` | 8 | Leitor com série: próximo e anterior no fim do capítulo, "voltar" para a série, sem série o leitor se comporta como antes |
 | `frontend/tests/unit/reader-vertical.test.tsx` | 11 | Modo vertical sem regredir o progresso salvo; janela de páginas; memória limitada; região viva e teclado |
-| `frontend/tests/unit/reader-navigation.test.ts` | 9 | Lógica pura: zonas de toque, deslize, teclas |
+| `frontend/tests/unit/reader-input.test.ts` | 11 | Entrada única: teclas, deslize e toque por direção e fonte; limiares por viewport; zoom; honra de direção (EPUB); frações de rolagem |
 | `frontend/tests/unit/reader-data.test.tsx` | 11 | `useReaderData` (fonte por tipo, locator salvo, 404, não suportado, retry sem carga dupla) e `useReaderProgress` (linha de base, primeira visita, codec) |
-| `frontend/tests/unit/reader-epub.test.tsx` | 51 | Leitor EPUB: capítulos, progresso, painéis e preferências do livro; fim de livro; troca para vertical e volta mantendo o capítulo; slider sem espelho (texto) |
-| `frontend/tests/unit/epub-locator.test.ts` | 17 | Locator de livro (`capítulo * 10000 + offset_bp`), lógica pura do leitor EPUB e sandbox de todos os iframes do leitor (página e tira) |
+| `frontend/tests/unit/reader-epub.test.tsx` | 53 | Leitor EPUB: capítulos, progresso, painéis e preferências do livro; fim de livro; troca para vertical e volta mantendo o capítulo; slider sem espelho (texto) |
+| `frontend/tests/unit/epub-locator.test.ts` | 14 | Locator de livro (`capítulo * 10000 + offset_bp`), lógica pura do leitor EPUB e sandbox de todos os iframes do leitor (página e tira) |
 | `frontend/tests/unit/epub-strip.test.ts` | 7 | Tira vertical do EPUB: janela de capítulos, posição, altura e conversão de posição |
 | `frontend/tests/unit/epub-pinch.test.ts` | 9 | `createPinchGuard` (multitoque, toque perdido, reset, expiração) e `createReflowHold` (só largura, rolagem do usuário, extensão) |
 | `frontend/tests/unit/reader-epub-vertical.test.tsx` | 11 | Leitor EPUB em modo vertical: tira, janela montada, progresso e fim do livro; altura de capítulo com `html`/`body` 100%; barras em toque |

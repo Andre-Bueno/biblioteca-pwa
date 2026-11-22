@@ -37,7 +37,7 @@ Verificação: `backend/tests/architecture/test_layers.py` executa `importlinter
 
 Dependency-cruiser (`frontend/.dependency-cruiser.cjs`, verificação `npm run arch`): feature não importa feature nem `app`; `shared` não importa `features` nem `app`; sem ciclos; import resolvível; `src` não depende de devDependencies. Regras ESLint em `frontend/eslint.config.js` (canais de rede e `indexedDB` por pasta; `localStorage` e `sessionStorage` proibidos em todo lugar).
 
-Estrutura real: `app/` (rotas, providers, SW, aviso de versão, escolha do leitor) → `features/` (telas: `auth`, `library`, `reader/` (`manga`, `epub`; `sources` = Strategy `ReaderSource`, ainda sem uso na UI), `settings`, `series`; esqueleto `reader-pdf`; `progress` só README) → `shared/` (`api-client`, `session`, `preferences`, `progress` (com flush-registry), `items` (com `useItem`), `series` (com `useReaderNav`), `system` (versão e aviso), `pwa` (estado do SW), `hooks`, `theme`, `ui`; `offline` só README).
+Estrutura real: `app/` (rotas, providers, SW, aviso de versão, escolha do leitor) → `features/` (telas: `auth`, `library`, `reader/` (`manga`, `epub`; `sources` = Strategy `ReaderSource`, usado pelas duas telas; `input` = teclado e gesto únicos), `settings`, `series`; esqueleto `reader-pdf`; `progress` só README) → `shared/` (`api-client`, `session`, `preferences`, `progress` (com flush-registry), `items` (com `useItem`), `series` (com `useReaderNav`), `system` (versão e aviso), `pwa` (estado do SW), `hooks`, `theme`, `ui`; `offline` só README).
 
 Cada feature usa `shared/` para dados (sessão, preferências, progresso, itens, séries, versão). Features não importam umas às outras.
 

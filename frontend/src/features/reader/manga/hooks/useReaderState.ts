@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { Item } from '../../../../shared/items';
 import type { ReadingDirection } from '../../../../shared/preferences';
 import type { ReaderNav } from '../../../../shared/series';
@@ -7,7 +7,7 @@ import type { ReaderShellProps } from '../../shell/ReaderShell';
 import { useReaderChrome, useUnitSlider } from '../../shell/useReaderChrome';
 import type { ReaderSource, UnitPosition } from '../../sources';
 import type { Step } from '../../shell/types';
-import { keyAction } from '../navigation';
+import { useReaderInput, type ReaderIntent } from '../../input';
 import { usePagePreload } from './usePagePreload';
 
 interface Params {
@@ -74,20 +74,36 @@ export function useReaderState({ item, source, nav, savedLocator, savedPosition 
 
   const toggleZoom = useCallback(() => setZoomed((value) => !value), []);
 
-  const handleChromeKey = chrome.handleKey;
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (handleChromeKey(event)) return;
-      const action = keyAction(event.key, mode);
-      if (!action) return;
-      event.preventDefault();
-      if (action === 'first') goTo(0);
-      else if (action === 'last') goTo(pageCount - 1);
-      else step(action);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [handleChromeKey, mode, goTo, step, pageCount]);
+  const { toggle: toggleControls } = chrome;
+  const onIntent = useCallback(
+    (intent: ReaderIntent) => {
+      switch (intent.type) {
+        case 'prev':
+        case 'next':
+          step(intent.type);
+          break;
+        case 'first':
+          goTo(0);
+          break;
+        case 'last':
+          goTo(pageCount - 1);
+          break;
+        case 'toggleChrome':
+          toggleControls();
+          break;
+        default:
+          break; // scrolling intents belong to HTML documents, never produced for pages
+      }
+    },
+    [step, goTo, pageCount, toggleControls],
+  );
+  const { input } = useReaderInput({
+    source,
+    mode,
+    zoomed,
+    handleChromeKey: chrome.handleKey,
+    onIntent,
+  });
 
   usePagePreload(item.id, page, pageCount, mode !== 'vertical');
 
@@ -122,7 +138,9 @@ export function useReaderState({ item, source, nav, savedLocator, savedPosition 
     goTo,
     step,
     onVisiblePage,
-    toggleControls: chrome.toggle,
+    input,
+    onIntent,
+    toggleControls,
     toggleZoom,
     shell,
   };

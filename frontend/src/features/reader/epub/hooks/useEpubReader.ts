@@ -6,7 +6,8 @@ import { useReaderProgress } from '../../hooks/useReaderProgress';
 import type { ReaderShellProps } from '../../shell/ReaderShell';
 import { SLIDER_DELAY_MS, useReaderChrome, useUnitSlider } from '../../shell/useReaderChrome';
 import type { ReaderSource, UnitPosition } from '../../sources';
-import { BP_MAX, readerKeyAction, stepFontScale } from '../locator';
+import { scrollFraction, useReaderInput, type ReaderIntent } from '../../input';
+import { BP_MAX, stepFontScale } from '../locator';
 import { useEpubFrame } from './useEpubFrame';
 import { useEpubStrip, type StripJump } from './useEpubStrip';
 
@@ -110,25 +111,42 @@ export function useEpubReader({
     [goToChapter, chapter, count],
   );
 
-  const handleChromeKey = chrome.handleKey;
-  const handleKey = useCallback(
-    (event: KeyboardEvent) => {
-      if (handleChromeKey(event)) return;
-      const action = readerKeyAction(event.key);
-      if (!action) return;
-      event.preventDefault();
-      if (action === 'chapter-prev') step('prev');
-      else if (action === 'chapter-next') step('next');
-      else if (action === 'page-down') scrollApi.current?.by(0.9);
-      else if (action === 'page-up') scrollApi.current?.by(-0.9);
-      else if (action === 'line-down') scrollApi.current?.by(0.1);
-      else if (action === 'line-up') scrollApi.current?.by(-0.1);
-      else scrollApi.current?.edge(action === 'top' ? 'top' : 'bottom');
+  const onIntent = useCallback(
+    (intent: ReaderIntent) => {
+      switch (intent.type) {
+        case 'prev':
+        case 'next':
+          step(intent.type);
+          break;
+        case 'first':
+          goToChapter(0);
+          break;
+        case 'last':
+          goToChapter(count - 1);
+          break;
+        case 'scrollPage':
+        case 'scrollLine':
+          scrollApi.current?.by(scrollFraction(intent));
+          break;
+        case 'scrollEdge':
+          scrollApi.current?.edge(intent.sign < 0 ? 'top' : 'bottom');
+          break;
+        case 'toggleChrome':
+          toggleControls();
+          break;
+      }
     },
-    [handleChromeKey, step],
+    [step, goToChapter, count, toggleControls],
   );
+  const { input, handleKey } = useReaderInput({
+    source,
+    mode: chrome.mode,
+    handleChromeKey: chrome.handleKey,
+    onIntent,
+  });
 
   const frame = useEpubFrame({
+    input,
     frameRef,
     chapter,
     positionRef,
@@ -140,9 +158,8 @@ export function useEpubReader({
         if (shouldReport) reportPosition(loadedChapter, value);
       },
       onGoto: goToChapter,
-      onToggleControls: toggleControls,
+      onIntent,
       onKey: handleKey,
-      onSwipe: (action) => step(action === 'chapter-next' ? 'next' : 'prev'),
       onLoaded: (ok) => {
         setLoading(false);
         setLoadFailedFrame(!ok);
@@ -151,6 +168,7 @@ export function useEpubReader({
   });
 
   const strip = useEpubStrip({
+    input,
     enabled: vertical,
     chapter,
     count,
@@ -172,7 +190,7 @@ export function useEpubReader({
         if (shouldReport) reportPosition(stripChapter, value);
       },
       onGoto: goToChapter,
-      onToggleControls: toggleControls,
+      onIntent,
       onKey: handleKey,
     },
   });
@@ -182,11 +200,6 @@ export function useEpubReader({
   useEffect(() => {
     scrollApi.current = { by: scrollBy, edge: scrollToEdge };
   }, [scrollBy, scrollToEdge]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [handleKey]);
 
   // Slider: shows the value while dragging, opens the chapter once the user pauses.
   const slider = useUnitSlider({

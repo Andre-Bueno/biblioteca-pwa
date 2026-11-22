@@ -10,6 +10,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 - Frontend: modo de leitura (D→E, E→D, vertical) no painel "Aa" de ambos os leitores, salvo como preferência `reading_direction` em todos os formatos
 - Frontend: slider de página passa a ser 0-based e só é espelhado (dir=rtl) no mangá; o EPUB não espelha até a fonte honrar direção (passo 5 do leitor único)
 - Frontend: hook único de dados do leitor (`features/reader/hooks/useReaderData.ts`) e shell compartilhado (`features/reader/shell`) para mangá e EPUB; "‹ Livro anterior" no fim do livro; estados de carregamento e erro unificados em `ReaderGate`
+- Frontend: teclado e gestos dos dois leitores passam por uma única entrada (`features/reader/input/`): no mangá paginado ↑/↓ e PgUp/PgDn trocam página; no EPUB rolam (↑/↓ 10%, PgUp/PgDn 90%); Home/End vão à primeira/última página ou ao topo/fim do capítulo; limiares de deslize por viewport
+- Frontend: mangá em modo vertical aceita ←/→ como página anterior/próxima, conforme o sentido de leitura
+- Frontend: EPUB de texto honra o sentido de leitura (passo 5 do leitor único): ←/→ e deslize seguem D→E e E→D, e o slider espelha em D→E
 
 ## [0.1.6] - 2026-11-21
 

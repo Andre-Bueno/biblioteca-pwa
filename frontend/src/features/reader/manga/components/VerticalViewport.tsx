@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { pageUrl } from '../../../../shared/items';
 import { ProtectedImage } from '../../../../shared/ui';
 import { STRIP_WINDOW, useVerticalStrip } from '../hooks/useVerticalStrip';
-import { useViewportGestures } from '../hooks/useViewportGestures';
+import { useViewportGestures } from '../../input';
 import type { ReaderState } from '../hooks/useReaderState';
 
 const noop = () => undefined;
@@ -59,10 +59,8 @@ export function VerticalViewport({ reader }: { reader: ReaderState }) {
     onVisiblePage: reader.onVisiblePage,
   });
   const gestures = useViewportGestures({
-    mode: 'vertical',
-    zoomed: false,
-    onStep: noop,
-    onCenterTap: reader.toggleControls,
+    input: reader.input,
+    onIntent: reader.onIntent,
     onDoubleTap: noop,
   });
 

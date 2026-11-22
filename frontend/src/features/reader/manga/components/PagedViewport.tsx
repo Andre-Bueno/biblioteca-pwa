@@ -1,14 +1,12 @@
 import { pageUrl } from '../../../../shared/items';
 import { ProtectedImage } from '../../../../shared/ui';
-import { useViewportGestures } from '../hooks/useViewportGestures';
+import { useViewportGestures } from '../../input';
 import type { ReaderState } from '../hooks/useReaderState';
 
 export function PagedViewport({ reader }: { reader: ReaderState }) {
   const gestures = useViewportGestures({
-    mode: reader.mode,
-    zoomed: reader.zoomed,
-    onStep: reader.step,
-    onCenterTap: reader.toggleControls,
+    input: reader.input,
+    onIntent: reader.onIntent,
     onDoubleTap: reader.toggleZoom,
   });
 

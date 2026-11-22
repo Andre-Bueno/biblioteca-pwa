@@ -3,7 +3,8 @@
 Leitor de EPUB (`/ler/:itemId` quando a fonte é `chapters`; a rota em `app/ReaderRoute.tsx` escolhe pela fonte). Barras, índice, ajustes e fim de livro vêm de `features/reader/shell` (compartilhado com o mangá).
 O servidor entrega cada capítulo como documento HTML já saneado; ele vive **apenas** num `<iframe sandbox="allow-same-origin">` (nunca `allow-scripts`). O app lê só geometria de rolagem e `a[href]` do iframe.
 
-- `locator.ts`: lógica pura (`capítulo*10000 + offset_bp`, links `?goto=`, teclas, gesto).
+- `locator.ts`: lógica pura (`capítulo*10000 + offset_bp`, links `?goto=`, ajuste de fonte).
+- Teclado, toque e deslize: `features/reader/input/` (compartilhado com o mangá). ←/→ e o deslize avançam e voltam conforme a direção (D→E: ← avança; E→D: → avança); ↑/↓ rolam 10%, PgUp/PgDn 90%, Home/End vão ao topo e ao fim do capítulo; o slider espelha em D→E.
 - Dados (item, fonte, livro, progresso inicial): `features/reader/hooks/useReaderData.ts`. `hooks/useEpubFrame` (iframe: restaurar posição, rolagem, cliques), `hooks/useEpubReader` (estado, preferências do livro, progresso).
 - `components/`: `EpubReaderPage` (monta o `ReaderShell` e o `ReaderGate`), `EpubStrip` (tira vertical).
 

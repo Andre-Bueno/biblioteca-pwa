@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { BP_MAX, encodeLocator, isCenterTap, parseGotoHref } from '../locator';
+import { tapIntent, type InputContext, type ReaderIntent } from '../../input';
+import { BP_MAX, encodeLocator, parseGotoHref } from '../locator';
 import { createPinchGuard, createReflowHold } from '../pinch';
 import {
   STRIP_SUPPRESS_MS,
@@ -21,7 +22,8 @@ export interface StripCallbacks {
   /** Chapter and offset under the top of the screen. `report` false = never save this value. */
   onPosition: (chapter: number, bp: number, report: boolean) => void;
   onGoto: (index: number, anchor: string | null) => void;
-  onToggleControls: () => void;
+  /** A tap on a chapter, already mapped to an intent by the single input module. */
+  onIntent: (intent: ReaderIntent) => void;
   onKey: (event: KeyboardEvent) => void;
 }
 
@@ -34,6 +36,8 @@ interface Params {
   initial: { chapter: number; bp: number };
   jump: StripJump;
   callbacks: StripCallbacks;
+  /** Reading mode and source: decides what a tap means. */
+  input: InputContext;
 }
 
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
@@ -51,11 +55,12 @@ function fallbackHeight(): number {
  * load, heights change) nothing is reported, and without a user gesture nothing below the
  * opening position is ever reported, so the saved progress cannot regress by itself.
  */
-export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks }: Params) {
+export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks, input }: Params) {
   const containerRef = useRef<HTMLDivElement>(null);
   const heightsRef = useRef(new Map<number, number>());
   const [heights, setHeights] = useState<ReadonlyMap<number, number>>(() => new Map());
   const latest = useRef(callbacks);
+  const inputRef = useRef(input);
   const topChapter = useRef(chapter);
   const state = useRef({
     gesture: false,
@@ -78,6 +83,7 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
 
   useEffect(() => {
     latest.current = callbacks;
+    inputRef.current = input;
     topChapter.current = chapter;
   });
 
@@ -353,7 +359,8 @@ export function useEpubStrip({ enabled, chapter, count, initial, jump, callbacks
         }
         if (win.getSelection()?.toString()) return;
         if (pinch.current.blocked(Date.now())) return; // end of a pinch is not a tap
-        if (isCenterTap(event.clientX, win.innerWidth)) latest.current.onToggleControls();
+        const tap = tapIntent(event.clientX, win.innerWidth, inputRef.current);
+        if (tap) latest.current.onIntent(tap);
       });
 
       const dispose = () => {

@@ -9,12 +9,9 @@ import {
   clampChapter,
   decodeLocator,
   encodeLocator,
-  isCenterTap,
   parseGotoHref,
-  readerKeyAction,
   scrollTopFromBp,
   stepFontScale,
-  swipeChapterStep,
 } from '../../src/features/reader/epub/locator';
 import { bookChapterUrl } from '../../src/shared/items';
 import { normalizePreferences } from '../../src/shared/preferences';
@@ -92,36 +89,13 @@ describe('internal links', () => {
   });
 });
 
-describe('settings and input helpers', () => {
+describe('settings helpers', () => {
   it('font scale moves in steps of 10 inside 80..200', () => {
     expect(stepFontScale(100, 1)).toBe(110);
     expect(stepFontScale(100, -1)).toBe(90);
     expect(stepFontScale(200, 1)).toBe(200);
     expect(stepFontScale(80, -1)).toBe(80);
     expect(stepFontScale(85, -1)).toBe(80);
-  });
-
-  it('maps keys', () => {
-    expect(readerKeyAction('ArrowRight')).toBe('chapter-next');
-    expect(readerKeyAction('ArrowLeft')).toBe('chapter-prev');
-    expect(readerKeyAction('PageDown')).toBe('page-down');
-    expect(readerKeyAction('PageUp')).toBe('page-up');
-    expect(readerKeyAction('Home')).toBe('top');
-    expect(readerKeyAction('End')).toBe('bottom');
-    expect(readerKeyAction('x')).toBeNull();
-  });
-
-  it('swipes only count when clearly horizontal', () => {
-    expect(swipeChapterStep(-120, 10)).toBe('chapter-next');
-    expect(swipeChapterStep(120, -10)).toBe('chapter-prev');
-    expect(swipeChapterStep(-120, 90)).toBeNull();
-    expect(swipeChapterStep(-40, 0)).toBeNull();
-  });
-
-  it('only the middle of the screen toggles the controls', () => {
-    expect(isCenterTap(500, 1000)).toBe(true);
-    expect(isCenterTap(100, 1000)).toBe(false);
-    expect(isCenterTap(900, 1000)).toBe(false);
   });
 });
 

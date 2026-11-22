@@ -1,4 +1,4 @@
-﻿// reg_001 (issue #7): zooming the EPUB reader (pinch on iOS, ctrl+wheel / ctrl+"+" on desktop)
+// reg_001 (issue #7): zooming the EPUB reader (pinch on iOS, ctrl+wheel / ctrl+"+" on desktop)
 // must not change chapter, move the reading position or save a new progress. Covers both modes:
 // continuous vertical strip and single chapter.
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -322,8 +322,9 @@ describe('reg_001 epub zoom: single chapter', { timeout: 20000 }, () => {
     await wait(700);
     clickIn(chapter.doc.body, 500);
     expect(screen.queryByTestId('reader-controls')).toBeNull();
-    touches(chapter.doc.body, 'touchstart', 1, 300);
-    touches(chapter.doc.body, 'touchend', 0, 100);
+    // rtl: a swipe to the right brings the next chapter
+    touches(chapter.doc.body, 'touchstart', 1, 100);
+    touches(chapter.doc.body, 'touchend', 0, 300);
     expect(frameSrc()).toContain('/chapters/2?');
   });
 

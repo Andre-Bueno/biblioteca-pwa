@@ -1,27 +1,30 @@
 import { useCallback, useEffect, useRef, type PointerEvent } from 'react';
-import type { ReadingDirection } from '../../../../shared/preferences';
-import type { Step } from '../../shell/types';
-import { TAP_MAX_MOVE_PX, swipeStep, tapZone } from '../navigation';
+import {
+  swipeIntent,
+  tapIntent,
+  viewportInput,
+  type InputContext,
+  type ReaderIntent,
+} from './intents';
 
 export const DOUBLE_TAP_MS = 280;
 
 interface Options {
-  mode: ReadingDirection;
-  zoomed: boolean;
-  onStep: (step: Step) => void;
-  onCenterTap: () => void;
+  input: InputContext;
+  onIntent: (intent: ReaderIntent) => void;
   onDoubleTap: () => void;
 }
 
 /**
- * Touch/mouse gestures on the page area: edge taps turn the page, a horizontal swipe turns the
- * page, a centre tap toggles the controls and a double tap in the centre toggles zoom. Page-turn
- * taps are immediate (no double-tap wait); only the centre tap waits to tell single from double.
+ * Touch/mouse gestures on an image viewport: edge taps and a horizontal swipe become intents
+ * (by direction and source), a centre tap toggles the controls and a double tap in the centre
+ * toggles zoom. Page-turn taps are immediate (no double-tap wait); only the centre tap waits to
+ * tell single from double.
  */
-export function useViewportGestures({ mode, zoomed, onStep, onCenterTap, onDoubleTap }: Options) {
+export function useViewportGestures({ input, onIntent, onDoubleTap }: Options) {
   const start = useRef<{ x: number; y: number } | null>(null);
   const pendingCenter = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const zoomEnabled = mode !== 'vertical';
+  const zoomEnabled = input.mode !== 'vertical' && input.source.capabilities.zoomToggle;
 
   useEffect(
     () => () => {
@@ -46,24 +49,24 @@ export function useViewportGestures({ mode, zoomed, onStep, onCenterTap, onDoubl
       const dx = event.clientX - origin.x;
       const dy = event.clientY - origin.y;
 
-      if (!zoomed) {
-        const step = swipeStep(dx, dy, mode);
-        if (step) {
-          onStep(step);
-          return;
-        }
+      const swipe = swipeIntent(dx, dy, input);
+      if (swipe) {
+        onIntent(swipe);
+        return;
       }
-      if (Math.abs(dx) > TAP_MAX_MOVE_PX || Math.abs(dy) > TAP_MAX_MOVE_PX) return; // a drag
+      const { tapMaxMovePx } = viewportInput(input);
+      if (Math.abs(dx) > tapMaxMovePx || Math.abs(dy) > tapMaxMovePx) return; // a drag
 
       const rect = event.currentTarget.getBoundingClientRect();
       const width = rect.width || window.innerWidth;
-      const zone = tapZone(event.clientX - rect.left, width, mode, zoomed);
-      if (zone !== 'center') {
-        onStep(zone);
+      const tap = tapIntent(event.clientX - rect.left, width, input);
+      if (!tap) return;
+      if (tap.type !== 'toggleChrome') {
+        onIntent(tap);
         return;
       }
       if (!zoomEnabled) {
-        onCenterTap();
+        onIntent(tap);
         return;
       }
       if (pendingCenter.current !== null) {
@@ -74,10 +77,10 @@ export function useViewportGestures({ mode, zoomed, onStep, onCenterTap, onDoubl
       }
       pendingCenter.current = setTimeout(() => {
         pendingCenter.current = null;
-        onCenterTap();
+        onIntent(tap);
       }, DOUBLE_TAP_MS);
     },
-    [mode, zoomed, zoomEnabled, onStep, onCenterTap, onDoubleTap],
+    [input, zoomEnabled, onIntent, onDoubleTap],
   );
 
   return { onPointerDown, onPointerUp, onPointerCancel };

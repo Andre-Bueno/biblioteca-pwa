@@ -386,8 +386,11 @@ describe('EPUB reader: table of contents and chapters', () => {
     expect(screen.getByTestId('reader-controls')).toBeInTheDocument();
   });
 
-  it('a clear horizontal swipe changes the chapter', async () => {
-    setup();
+  it.each([
+    ['rtl', 100, 300],
+    ['ltr', 300, 100],
+  ])('a clear horizontal swipe changes the chapter, by direction (%s)', async (dir, from, to) => {
+    setup('/ler/bk-1', { prefs: { ...PREFS, reading_direction: dir } });
     const chapter = mountChapter(await openFrame());
     const touch = (type: string, x: number, y: number) => {
       const event = new Event(type, { bubbles: true }) as Event & {
@@ -401,8 +404,8 @@ describe('EPUB reader: table of contents and chapters', () => {
         chapter.doc.body.dispatchEvent(event);
       });
     };
-    touch('touchstart', 300, 200);
-    touch('touchend', 100, 210);
+    touch('touchstart', from, 200);
+    touch('touchend', to, 210);
     expect(screen.getByTestId('epub-frame')).toHaveAttribute('src', chapterSrc(1));
     // a mostly vertical move is only scrolling
     touch('touchstart', 300, 200);
@@ -428,18 +431,29 @@ describe('EPUB reader: keyboard', () => {
     expect(chapter.top()).toBe(0);
     fireEvent.keyDown(window, { key: 'ArrowDown' });
     expect(chapter.top()).toBe(100);
+    // right-to-left (the default of these tests): left is forward, right is back
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(frameSrc()).toBe(chapterSrc(1));
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(frameSrc()).toBe(chapterSrc(0));
+    fireEvent.keyDown(window, { key: 'ArrowRight' }); // already first: nothing happens
+    expect(frameSrc()).toBe(chapterSrc(0));
+  });
+
+  it('left-to-right inverts the arrows: right is forward, left is back', async () => {
+    setup('/ler/bk-1', { prefs: { ...PREFS, reading_direction: 'ltr' } });
+    mountChapter(await openFrame());
+    const frameSrc = () => screen.getByTestId('epub-frame').getAttribute('src');
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(frameSrc()).toBe(chapterSrc(1));
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(frameSrc()).toBe(chapterSrc(0));
-    fireEvent.keyDown(window, { key: 'ArrowLeft' }); // already first: nothing happens
     expect(frameSrc()).toBe(chapterSrc(0));
   });
 
   it('keys pressed inside the iframe document work too', async () => {
     setup();
     const chapter = mountChapter(await openFrame());
-    expect(keyIn(chapter.doc, 'ArrowRight').defaultPrevented).toBe(true);
+    expect(keyIn(chapter.doc, 'ArrowLeft').defaultPrevented).toBe(true);
     expect(screen.getByTestId('epub-frame')).toHaveAttribute('src', chapterSrc(1));
   });
 
@@ -749,8 +763,14 @@ describe('EPUB reader: reading mode switch', () => {
     expect(prefPuts().at(-1)!.body).toMatchObject({ reading_direction: 'ltr' });
   });
 
-  it('the slider is not mirrored for text (the direction is not honored yet)', async () => {
+  it('the slider is mirrored for text in right-to-left', async () => {
     setup('/ler/bk-1', { prefs: PREFS });
+    await openFrame();
+    expect(screen.getByTestId('chapter-slider')).toHaveAttribute('dir', 'rtl');
+  });
+
+  it('the slider is not mirrored for text in left-to-right', async () => {
+    setup('/ler/bk-1', { prefs: { ...PREFS, reading_direction: 'ltr' } });
     await openFrame();
     expect(screen.getByTestId('chapter-slider')).toHaveAttribute('dir', 'ltr');
   });

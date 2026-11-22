@@ -1,6 +1,6 @@
 # CODEMAP
 
-Arquivo → responsabilidade → camada. Estado: 2026-11-21. Conferido contra o disco nesta entrega (listagem de arquivos; leitura dos módulos alterados). Excluídos: `.venv`, `node_modules`, `dist`, `__pycache__`, caches (`.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.import_linter_cache`), `reader_backend.egg-info/` e `.github/scripts/__pycache__`, `infra/deploy-hook/__pycache__` (gerados).
+Arquivo → responsabilidade → camada. Estado: 2026-11-22. Conferido contra o disco nesta entrega (listagem de arquivos; leitura dos módulos alterados). Excluídos: `.venv`, `node_modules`, `dist`, `__pycache__`, caches (`.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.import_linter_cache`), `reader_backend.egg-info/` e `.github/scripts/__pycache__`, `infra/deploy-hook/__pycache__` (gerados).
 
 ## Raiz
 
@@ -343,17 +343,15 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/src/features/library/hooks/useContinueReading.ts` | Carrega a prateleira; falha só esconde a prateleira | features |
 | `frontend/src/features/reader/manga/README.md` | Escopo do leitor de mangá | docs |
 | `frontend/src/features/reader/manga/reader.css` | Estilos do leitor | features |
-| `frontend/src/features/reader/manga/navigation.ts` | Lógica pura: `tapZone`, `swipeStep`, `keyAction`; constantes de toque | features |
 | `frontend/src/features/reader/manga/components/MangaReaderPage.tsx` | Tela do leitor de mangá (fonte `pages`): monta `ReaderShell` dentro de `ReaderGate` | features |
 | `frontend/src/features/reader/manga/components/PagedViewport.tsx` | Modos RTL e LTR (uma página por vez), `aria-label` com instruções | features |
 | `frontend/src/features/reader/manga/components/VerticalViewport.tsx` | Modo vertical (tira contínua), monta só a janela ao redor da página atual | features |
-| `frontend/src/features/reader/manga/hooks/useReaderState.ts` | Estado do leitor: página, modo, zoom, controles, teclado, pré-carregamento e salvamento de progresso | features |
+| `frontend/src/features/reader/manga/hooks/useReaderState.ts` | Estado do leitor: página, modo, zoom, controles, entrada (`reader/input`), pré-carregamento e salvamento de progresso | features |
 | `frontend/src/features/reader/manga/hooks/usePagePreload.ts` | Pré-carrega 2 páginas à frente; mantém no máximo 8 e 2 atrás | features |
 | `frontend/src/features/reader/manga/hooks/useVerticalStrip.ts` | Janela da tira vertical (`STRIP_WINDOW` = 3, ou seja 7 páginas) e posição inicial | features |
-| `frontend/src/features/reader/manga/hooks/useViewportGestures.ts` | Toque, deslize e duplo toque (com limite de movimento) | features |
 | `frontend/src/features/reader/epub/README.md` | Escopo do leitor EPUB: capítulo em `iframe sandbox="allow-same-origin"`, sem `allow-scripts` | docs |
 | `frontend/src/features/reader/epub/epub.css` | Estilos do leitor EPUB e do frame | features |
-| `frontend/src/features/reader/epub/locator.ts` | Lógica pura do locator de livro (`capítulo * 10000 + offset_bp`), links `?goto=`, teclas e gestos | features |
+| `frontend/src/features/reader/epub/locator.ts` | Lógica pura do locator de livro (`capítulo * 10000 + offset_bp`), links `?goto=`, ajuste de fonte (`stepFontScale`) | features |
 | `frontend/src/features/reader/epub/components/EpubReaderPage.tsx` | Tela do leitor EPUB (fonte `chapters`): monta `ReaderShell` dentro de `ReaderGate`; frame do capítulo; `createResumeStore` (retoma a posição viva ao alternar modo) | features |
 | `frontend/src/features/reader/epub/hooks/useEpubFrame.ts` | Frame do capítulo: restaura posição, lê rolagem e cliques em `a[href]` | features |
 | `frontend/src/features/reader/epub/hooks/useEpubReader.ts` | Estado do leitor EPUB: capítulo, preferências do livro e progresso (`useReaderProgress`); barras e painéis vêm de `shell/useReaderChrome` | features |
@@ -363,6 +361,10 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/src/features/reader/index.ts` | Exporta `EpubReaderPage`, `MangaReaderPage`, `useReaderData`, `ReaderData` e `SourceKind` (`/ler/:itemId`, usado por `app/ReaderRoute.tsx`) | features |
 | `frontend/src/features/reader/hooks/useReaderData.ts` | Hook único de dados do leitor: item, fonte (`selectSource`), livro, locator salvo e posição decodificada; estados `loading`, `notfound`, `error`, `unsupported`, `ready`; retry sem recarregar o item à toa | features |
 | `frontend/src/features/reader/hooks/useReaderProgress.ts` | Salvamento de progresso comum: linha de base do servidor (não reenvia), primeira visita registra a abertura, codifica a posição pelo codec da fonte | features |
+| `frontend/src/features/reader/input/index.ts` | Reexporta `intents`, `useReaderInput` e `useViewportGestures` (entrada única de teclado e gesto dos dois leitores) | features |
+| `frontend/src/features/reader/input/intents.ts` | Puro, sem React. `ReaderIntent` (`prev`, `next`, `first`, `last`, `scrollPage`, `scrollLine`, `scrollEdge`, `toggleChrome`); `keyIntent`, `swipeIntent` e `tapIntent` por direção efetiva (rtl, ltr, vertical) e tipo de fonte; `VIEWPORT_INPUT` (páginas: swipe 50 px, razão 1,5, borda 0,3; capítulos: 80 px, razão 2, faixa central 0,25–0,75); `scrollFraction` (página 90%, linha 10%) | features |
+| `frontend/src/features/reader/input/useReaderInput.ts` | Hook de teclado: ouve `keydown` na janela, trata primeiro o chrome (`handleChromeKey`) e depois `keyIntent`; `handleKey` também recebe as teclas do iframe do EPUB | features |
+| `frontend/src/features/reader/input/useViewportGestures.ts` | Gestos do viewport de imagem (mangá): deslize, toque nas bordas (imediato), toque central (duplo toque espera o zoom quando `zoomToggle`), toque com movimento acima do limite é arrasto | features |
 | `frontend/src/features/reader/shell/ReaderShell.tsx` | Chrome comum aos dois leitores: barras, pílula de posição, aviso de salvamento, fim de unidade e gavetas | features |
 | `frontend/src/features/reader/shell/ReaderBars.tsx` | Barra superior (voltar, título, Índice, Aa) e inferior (slider 0-based, pílula, Ampliar só com `zoomToggle`) | features |
 | `frontend/src/features/reader/shell/ReaderEnd.tsx` | Fim de capítulo ou livro: próximo; em livro, "‹ Livro anterior" | features |
@@ -480,7 +482,7 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/tests/unit/series-books.test.tsx` | Série de livros: rótulo "Livro" sem contagem de páginas, progresso em %, `kind` e `type` (com fallback para respostas antigas), "continuar" de livro e cartão na biblioteca | teste |
 | `frontend/tests/unit/metadata.test.tsx` | Painel admin (invisível para usuário comum, recolhido, busca só por clique, usar candidato, edição com limites, remoção com confirmação, 429); botão "Atualizar metadados" (polling, 409, parada ao sair); origem e atribuição da descrição; links só https; capa e `Cover` | teste |
 | `frontend/tests/unit/reader.test.tsx` | Leitor de mangá: retomada (página salva, 404 = página 1, item sem páginas), modos RTL/LTR/vertical, zoom, pré-carregamento, salvamento (debounce, `pagehide` com `keepalive`, aba oculta, saída, falha com aviso) | teste |
-| `frontend/tests/unit/reader-navigation.test.ts` | Lógica pura de navegação: zonas de toque, deslize, teclas | teste |
+| `frontend/tests/unit/reader-input.test.ts` | Entrada única: teclas, deslize e toque por direção e fonte; limiares por viewport; zoom; honra de direção (EPUB); frações de rolagem | teste |
 | `frontend/tests/unit/reader-data.test.tsx` | `useReaderData` (fonte por tipo, locator salvo, 404, não suportado, retry sem carga dupla) e `useReaderProgress` (linha de base, primeira visita, codec) | teste |
 | `frontend/tests/unit/reader-series.test.tsx` | Leitor com série: próximo e anterior no fim do capítulo, "voltar" para a série | teste |
 | `frontend/tests/unit/reader-vertical.test.tsx` | Modo vertical: não regride o progresso salvo ao retomar; janela de páginas montadas; memória limitada do pré-carregamento; região viva e teclado | teste |
@@ -503,6 +505,8 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/tests/regression/reg_001_epub_zoom_no_page_change.test.tsx` | reg_001 (issue #7): zoom/pinça no EPUB não troca capítulo, não move a posição e não salva progresso; tira vertical e capítulo único | teste |
 
 Removidos (entrega do MVP, 2026-11-20): `frontend/src/app/HomePage.tsx`, `frontend/src/app/useHealth.ts`, `frontend/tests/unit/home.test.tsx`. Removido em 2026-11-21: `frontend/src/features/library/components/ItemCard.tsx` (substituído por `SeriesCard.tsx`). Movido em 2026-11-21: `features/reader-manga/hooks/useReaderNav.ts` → `shared/series/useReaderNav.ts`.
+Movido em 2026-11-22 (leitor único, passo 5): `features/reader/manga/hooks/useViewportGestures.ts` → `features/reader/input/useViewportGestures.ts`.
+Removido em 2026-11-22 (leitor único, passo 5): `features/reader/manga/navigation.ts` (`tapZone`, `swipeStep`, `keyAction` viram `intents.ts`: `tapIntent`, `swipeIntent`, `keyIntent`); de `features/reader/epub/locator.ts`, `readerKeyAction`, `swipeChapterStep`, `isCenterTap` e `SWIPE_MIN_PX` (movidos para `reader/input/`). Teste `reader-navigation.test.ts` renomeado para `reader-input.test.ts`.
 Movido em 2026-11-21 (leitor único, passos 1-2): `features/reader-manga/` → `features/reader/manga/`; `features/reader-epub/` → `features/reader/epub/`; `index.ts` antigos removidos (substituídos por `features/reader/index.ts`).
 Removido em 2026-11-21 (leitor único, passos 3-4): `features/reader/epub/components/{Drawer,TocDrawer,SettingsDrawer,EpubEnd,EpubControls}.tsx`, `features/reader/manga/components/{ChapterEnd,ReaderControls}.tsx`, `features/reader/manga/hooks/useReaderData.ts`, `features/reader/epub/hooks/useEpubData.ts`; `clampPage` saiu de `manga/navigation.ts` (fica em `sources/pagesSource.ts`).
 

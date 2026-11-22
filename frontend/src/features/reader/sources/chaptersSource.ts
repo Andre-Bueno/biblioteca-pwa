@@ -34,8 +34,8 @@ export function createBookChaptersSource(book: BookSourceInfo): ReaderSource {
       textSettings: true,
       zoomToggle: false,
       edgeTapsStep: false,
-      // Becomes true in step 5 (keys, swipe and slider will follow the direction for text too).
-      honorsDirection: false,
+      // Keys, swipe and the slider follow rtl/ltr for text too (the sides do not turn chapters).
+      honorsDirection: true,
     },
     clampUnit: (unit) => clampChapter(unit, unitCount),
     unitTitle: (unit) => {
