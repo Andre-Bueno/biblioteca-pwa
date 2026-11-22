@@ -379,6 +379,8 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/src/features/settings/settings.css` | Estilos dos ajustes | features |
 | `frontend/src/features/settings/components/SettingsPage.tsx` | Tela `/ajustes`: versão do app, "Verificar atualizações" (só admin), aparência, sentido de leitura, conta (troca de senha e sair) | features |
 | `frontend/src/features/settings/components/ChangePasswordForm.tsx` | Formulário de troca de senha | features |
+| `frontend/src/features/settings/components/SettingsSection.tsx` | Cartão de seção de Ajustes: ícone, título, descrição e corpo (`aria-labelledby`) | features |
+| `frontend/src/features/settings/components/SectionIcon.tsx` | Ícones SVG de linha das seções de Ajustes (decorativos, `aria-hidden`) | features |
 | `frontend/src/features/settings/hooks/useChangePassword.ts` | Estado e envio da troca de senha | features |
 | `frontend/src/features/settings/hooks/useCheckUpdates.ts` | Verificação manual de atualização (admin): uma chamada por vez; 429 bloqueia o botão pelo `Retry-After` | features |
 | `frontend/src/features/series/index.ts` | Exporta `SeriesPage` | features |

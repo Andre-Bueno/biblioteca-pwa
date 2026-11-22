@@ -49,7 +49,7 @@ export function ChangePasswordForm() {
       )}
       <button
         type="submit"
-        className="btn btn--primary"
+        className="btn btn--primary settings__action"
         data-testid="password-submit"
         disabled={form.submitting || form.waiting}
       >

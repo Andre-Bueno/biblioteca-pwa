@@ -4,6 +4,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+## [0.1.6] - 2026-11-21
+
+### Changed
+- Frontend: visual da tela Ajustes (`features/settings`): seções em cartões com ícone SVG (`SettingsSection.tsx`, `SectionIcon.tsx`), segmentados de 48 px com trilho com borda, linhas chave/valor em "Sobre o app" e "Conta", "Sair" em contorno de perigo, aviso de versão com destaque de accent e links sem cor padrão do navegador; largura de 640 px. Sem token alterado e sem mudança de comportamento.
+
+### Fixed
+- Frontend: foco por teclado no botão selecionado dos segmentados de Ajustes passa a ter contorno visível (`settings.css`).
+
 ## [0.1.5] - 2026-11-21
 
 ### Changed

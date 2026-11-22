@@ -5,6 +5,7 @@ import { SegmentedControl, ThemeToggle, type SegmentedOption } from '../../../sh
 import { UpdateNotice, useVersion } from '../../../shared/system';
 import { useCheckUpdates, type CheckResult } from '../hooks/useCheckUpdates';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { SettingsSection } from './SettingsSection';
 import '../settings.css';
 
 const DIRECTION_OPTIONS: SegmentedOption<ReadingDirection>[] = [
@@ -36,13 +37,21 @@ export function SettingsPage() {
         <h1 className="settings__title">Ajustes</h1>
       </header>
 
-      <section className="settings__section" aria-labelledby="appearance-title">
-        <h2 id="appearance-title">Aparência</h2>
+      <SettingsSection
+        id="appearance-title"
+        icon="appearance"
+        title="Aparência"
+        description="Escolha o tema do app. Sistema acompanha o seu aparelho."
+      >
         <ThemeToggle onSelect={(theme) => void update({ theme })} />
-      </section>
+      </SettingsSection>
 
-      <section className="settings__section" aria-labelledby="reading-title">
-        <h2 id="reading-title">Leitura</h2>
+      <SettingsSection
+        id="reading-title"
+        icon="reading"
+        title="Leitura"
+        description="Sentido padrão de leitura dos mangás."
+      >
         <SegmentedControl
           label="Sentido de leitura"
           options={DIRECTION_OPTIONS}
@@ -50,11 +59,11 @@ export function SettingsPage() {
           onChange={(reading_direction) => void update({ reading_direction })}
           testId="reading-direction"
         />
-        <p className="muted">
+        <p className="settings__help">
           D→E: mangá, da direita para a esquerda. E→D: da esquerda para a direita. Vertical: rolagem
           contínua (webtoon). Você pode trocar o modo dentro do leitor.
         </p>
-      </section>
+      </SettingsSection>
 
       {loadFailed && (
         <div className="alert alert--error" role="alert" data-testid="preferences-load-error">
@@ -76,45 +85,57 @@ export function SettingsPage() {
 
       <UpdateNotice />
 
-      <section className="settings__section" aria-labelledby="about-title">
-        <h2 id="about-title">Sobre o app</h2>
+      <SettingsSection id="about-title" icon="about" title="Sobre o app">
         {version.info?.current && (
-          <p className="muted" data-testid="app-version">
-            Versão do app: {version.info.current}
-          </p>
+          <dl className="settings__kv">
+            <div className="settings__kv-row" data-testid="app-version">
+              <dt>Versão do app:</dt> <dd>{version.info.current}</dd>
+            </div>
+          </dl>
         )}
         {user?.role === 'admin' && (
           <>
             <button
               type="button"
-              className="btn"
+              className="btn settings__action"
               disabled={check.busy || check.blocked}
               data-testid="check-updates"
               onClick={() => void check.run()}
             >
               {check.busy ? 'Verificando…' : 'Verificar atualizações'}
             </button>
-            <p className="muted" role="status" data-testid="check-result">
+            <p className="settings__help" role="status" data-testid="check-result">
               {CHECK_TEXT[check.result.kind]}
               {check.result.kind === 'available' ? ` ${check.result.tag}.` : ''}
             </p>
           </>
         )}
-      </section>
+      </SettingsSection>
 
-      <section className="settings__section" aria-labelledby="account-title">
-        <h2 id="account-title">Conta</h2>
-        {user && <p className="muted">Conectado como {user.username}</p>}
+      <SettingsSection
+        id="account-title"
+        icon="account"
+        title="Conta"
+        description="Troque a senha ou encerre a sessão neste aparelho."
+      >
+        {user && (
+          <dl className="settings__kv">
+            <div className="settings__kv-row">
+              <dt>Conectado como</dt> <dd>{user.username}</dd>
+            </div>
+          </dl>
+        )}
         <ChangePasswordForm />
+        <hr className="settings__rule" />
         <button
           type="button"
-          className="btn btn--danger"
+          className="btn btn--danger settings__action settings__logout"
           data-testid="logout"
           onClick={() => void logout()}
         >
           Sair
         </button>
-      </section>
+      </SettingsSection>
     </main>
   );
 }
