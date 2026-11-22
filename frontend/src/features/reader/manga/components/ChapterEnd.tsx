@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import type { ReaderNav } from '../../../shared/series';
+import type { ReaderNav } from '../../../../shared/series';
 
 /** Shown on the last page of a chapter that belongs to a series: next / previous chapter. */
 export function ChapterEnd({ nav, raised }: { nav: ReaderNav; raised: boolean }) {

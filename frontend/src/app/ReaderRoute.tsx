@@ -1,5 +1,4 @@
-import { EpubReaderPage } from '../features/reader-epub';
-import { MangaReaderPage } from '../features/reader-manga';
+import { EpubReaderPage, MangaReaderPage } from '../features/reader';
 import { useReaderKind } from './useReaderKind';
 
 /** `/ler/:itemId`: manga opens the manga reader, a book opens the EPUB reader. */

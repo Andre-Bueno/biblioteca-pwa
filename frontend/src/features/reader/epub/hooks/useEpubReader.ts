@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { bookChapterUrl, type BookInfo, type Item } from '../../../shared/items';
-import { useAutoHideControls } from '../../../shared/hooks';
-import { usePreferences, type BookTheme } from '../../../shared/preferences';
-import { useProgressSaver } from '../../../shared/progress';
-import { useReaderNav } from '../../../shared/series';
+import { bookChapterUrl, type BookInfo, type Item } from '../../../../shared/items';
+import { useAutoHideControls } from '../../../../shared/hooks';
+import { usePreferences, type BookTheme } from '../../../../shared/preferences';
+import { useProgressSaver } from '../../../../shared/progress';
+import { useReaderNav } from '../../../../shared/series';
 import {
   BP_MAX,
   bookPercent,

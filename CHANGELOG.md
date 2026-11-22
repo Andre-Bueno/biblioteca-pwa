@@ -4,6 +4,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ## [Não lançado]
 
+### Changed
+- Frontend: leitores fundidos em features/reader (epub e manga) e abstração ReaderSource (Strategy) para leitor único; sem mudança de comportamento
+
 ## [0.1.6] - 2026-11-21
 
 ### Changed

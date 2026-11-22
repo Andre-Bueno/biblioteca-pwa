@@ -55,7 +55,7 @@ Regra de dependência (sentido único, **dependências apontam para dentro**):
 | Pasta | Conteúdo |
 |---|---|
 | `frontend/src/app/` | Bootstrap, rotas, providers, shell da PWA. Compõe as features. |
-| `frontend/src/features/<nome>/` | Feature completa: telas, hooks, estado e chamadas à API. Ex.: `auth`, `library`, `reader-manga`, `reader-epub`, `reader-pdf`, `progress` (só README; código em `shared/`), `theme` (na prática em `shared/theme`). |
+| `frontend/src/features/<nome>/` | Feature completa: telas, hooks, estado e chamadas à API. Ex.: `auth`, `library`, `reader/{manga,epub,sources}` (leitor único), `reader-pdf`, `progress` (só README; código em `shared/`), `theme` (na prática em `shared/theme`). |
 | `frontend/src/shared/` | Cliente HTTP, componentes genéricos, utilitários, cache offline/service worker. |
 
 Regra de dependência:

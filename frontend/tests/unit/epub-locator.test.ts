@@ -15,7 +15,7 @@ import {
   scrollTopFromBp,
   stepFontScale,
   swipeChapterStep,
-} from '../../src/features/reader-epub/locator';
+} from '../../src/features/reader/epub/locator';
 import { bookChapterUrl } from '../../src/shared/items';
 import { normalizePreferences } from '../../src/shared/preferences';
 
@@ -170,7 +170,7 @@ function sources(dir: string): string[] {
 }
 
 describe('EPUB reader source guards', () => {
-  const files = sources('src/features/reader-epub');
+  const files = sources('src/features/reader/epub');
 
   it('never injects HTML into the app', () => {
     for (const file of files) {

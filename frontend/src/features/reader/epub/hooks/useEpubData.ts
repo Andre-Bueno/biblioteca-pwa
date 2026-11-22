@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError } from '../../../shared/api-client';
-import { getBook, type BookInfo, type Item, type ItemState } from '../../../shared/items';
-import { getProgress } from '../../../shared/progress';
+import { ApiError } from '../../../../shared/api-client';
+import { getBook, type BookInfo, type Item, type ItemState } from '../../../../shared/items';
+import { getProgress } from '../../../../shared/progress';
 
 export type EpubData =
   | { status: 'loading' }

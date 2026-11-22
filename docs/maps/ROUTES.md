@@ -9,7 +9,7 @@ Estado: 2026-11-21. Fonte: `frontend/src/app/routes.tsx`. Roteador: react-router
 | `/login` | `LoginPage` | `features/auth` | público | Se já autenticado, redireciona para `safeRedirect(state.from)` |
 | `/` | `LibraryPage` | `features/library` | protegida | Aviso de nova versão (só admin); "Continuar lendo"; grade de séries (capas e contagem "N livros"/"N capítulos"/"N itens"); busca com debounce; "carregar mais"; botão "Atualizar metadados" só para admin |
 | `/serie/:id` | `SeriesPage` | `features/series` | protegida | Capítulos em ordem natural, busca por número, descrição com origem e atribuição, "continuar"; livros aparecem como "Livro" (sem contagem de páginas); painel de metadados só para admin (busca, escolher fonte, editar texto, remover). Capítulo sem série: não há rota própria |
-| `/ler/:itemId` | `ReaderRoute` → `MangaReaderPage` ou `EpubReaderPage` | `features/reader-manga`, `features/reader-epub` | protegida | `app/ReaderRoute.tsx` escolhe pelo tipo do item: `book` abre o leitor EPUB; demais, o leitor de mangá. Com `?serie=<id>`: próximo e anterior capítulo no fim; "voltar" leva à série. Livro: em toque, barras ocultas ao abrir e após 4 s (toque no centro alterna; ☰ e tecla `m`); com mouse, barras visíveis. Mangá: retoma na página salva; "Este formato ainda não é suportado." para PDF; 404: "Item não encontrado." |
+| `/ler/:itemId` | `ReaderRoute` → `MangaReaderPage` ou `EpubReaderPage` | `features/reader/manga`, `features/reader/epub` (export por `features/reader/index.ts`) | protegida | `app/ReaderRoute.tsx` escolhe pelo tipo do item: `book` abre o leitor EPUB; demais, o leitor de mangá. Com `?serie=<id>`: próximo e anterior capítulo no fim; "voltar" leva à série. Livro: em toque, barras ocultas ao abrir e após 4 s (toque no centro alterna; ☰ e tecla `m`); com mouse, barras visíveis. Mangá: retoma na página salva; "Este formato ainda não é suportado." para PDF; 404: "Item não encontrado." |
 | `/ajustes` | `SettingsPage` | `features/settings` | protegida | Versão do app; "Verificar atualizações" (só admin); aparência (tema); sentido de leitura; troca de senha; sair |
 | `*` | `Navigate` para `/` | app | — | Qualquer outro caminho |
 
@@ -72,4 +72,4 @@ Leitor EPUB: o capítulo vive num `<iframe sandbox="allow-same-origin">` (sem `a
 | Biblioteca com filtro por status (lendo, concluído): requisito do MVP ainda pendente | `features/library/` | 2 (pendente) |
 | Offline explícito | `shared/offline/` | 5 |
 
-Entregue em 2026-11-21: leitor EPUB (`features/reader-epub/`, ADR 0017, proposto).
+Entregue em 2026-11-21: leitor EPUB (`features/reader/epub/`, ADR 0017, proposto).

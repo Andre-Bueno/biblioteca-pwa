@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Item, ItemState } from '../../../shared/items';
-import { getProgress } from '../../../shared/progress';
+import type { Item, ItemState } from '../../../../shared/items';
+import { getProgress } from '../../../../shared/progress';
 
 export type ReaderData =
   | { status: 'loading' }

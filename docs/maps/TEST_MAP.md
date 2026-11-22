@@ -150,6 +150,7 @@ Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-0
 | `frontend/tests/unit/epub-strip.test.ts` | 7 | Tira vertical do EPUB: janela de capítulos, posição, altura e conversão de posição |
 | `frontend/tests/unit/epub-pinch.test.ts` | 9 | `createPinchGuard` (multitoque, toque perdido, reset, expiração) e `createReflowHold` (só largura, rolagem do usuário, extensão) |
 | `frontend/tests/unit/reader-epub-vertical.test.tsx` | 11 | Leitor EPUB em modo vertical: tira, janela montada, progresso e fim do livro; altura de capítulo com `html`/`body` 100%; barras em toque |
+| `frontend/tests/unit/reader-sources.test.ts` | 18 | `ImagePagesSource`, `BookChaptersSource` e `selectSource`: codec do locator por tipo de item, clamp, títulos, TOC e progresso |
 | `frontend/tests/unit/auto-hide-controls.test.ts` | 3 | `useAutoHideControls`: oculto por padrão só em toque, auto-ocultar após 4 s, `keepAlive` e `paused`, com mouse não oculta |
 | `frontend/tests/unit/progress-saver.test.ts` | 8 | Debounce, um envio por vez, retry, `flush` com `keepalive`, `dispose` |
 | `frontend/tests/unit/preferences.test.tsx` | 3 | Não sobrescreve o servidor com padrões; edição com GET pendente é mesclada; PUTs em série |

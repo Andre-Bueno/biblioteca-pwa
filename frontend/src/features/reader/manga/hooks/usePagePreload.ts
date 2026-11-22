@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { pageUrl } from '../../../shared/items';
+import { pageUrl } from '../../../../shared/items';
 
 export const PRELOAD_AHEAD = 2;
 /** Pages behind the current one that stay referenced (back-navigation). */

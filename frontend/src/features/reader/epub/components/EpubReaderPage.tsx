@@ -1,8 +1,8 @@
 import { useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import type { BookInfo, Item, ItemState } from '../../../shared/items';
-import { usePreferences } from '../../../shared/preferences';
-import '../../../shared/ui';
+import type { BookInfo, Item, ItemState } from '../../../../shared/items';
+import { usePreferences } from '../../../../shared/preferences';
+import '../../../../shared/ui';
 import { useEpubData } from '../hooks/useEpubData';
 import { useEpubReader } from '../hooks/useEpubReader';
 import { EpubControls } from './EpubControls';

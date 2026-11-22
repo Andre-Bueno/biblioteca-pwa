@@ -1,5 +1,5 @@
-import { BOOK_FONT_MAX, BOOK_FONT_MIN, type BookTheme } from '../../../shared/preferences';
-import { SegmentedControl, type SegmentedOption } from '../../../shared/ui';
+import { BOOK_FONT_MAX, BOOK_FONT_MIN, type BookTheme } from '../../../../shared/preferences';
+import { SegmentedControl, type SegmentedOption } from '../../../../shared/ui';
 import type { EpubReaderState } from '../hooks/useEpubReader';
 import { Drawer } from './Drawer';
 

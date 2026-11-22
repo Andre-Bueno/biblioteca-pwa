@@ -6,7 +6,7 @@ import {
   measureFrameHeight,
   scrollTopForPosition,
   stripWindow,
-} from '../../src/features/reader-epub/strip';
+} from '../../src/features/reader/epub/strip';
 
 const BLOCKS = [
   { top: 0, height: 1000 },

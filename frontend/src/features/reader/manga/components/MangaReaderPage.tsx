@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import type { Item, ItemState } from '../../../shared/items';
-import { usePreferences } from '../../../shared/preferences';
-import { useReaderNav, type ReaderNav } from '../../../shared/series';
-import '../../../shared/ui';
+import type { Item, ItemState } from '../../../../shared/items';
+import { usePreferences } from '../../../../shared/preferences';
+import { useReaderNav, type ReaderNav } from '../../../../shared/series';
+import '../../../../shared/ui';
 import { useReaderData } from '../hooks/useReaderData';
 import { ChapterEnd } from './ChapterEnd';
 import { useReaderState } from '../hooks/useReaderState';

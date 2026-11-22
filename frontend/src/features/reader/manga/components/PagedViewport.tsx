@@ -1,5 +1,5 @@
-import { pageUrl } from '../../../shared/items';
-import { ProtectedImage } from '../../../shared/ui';
+import { pageUrl } from '../../../../shared/items';
+import { ProtectedImage } from '../../../../shared/ui';
 import { useViewportGestures } from '../hooks/useViewportGestures';
 import type { ReaderState } from '../hooks/useReaderState';
 

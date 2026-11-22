@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Item } from '../../../shared/items';
-import { usePreferences } from '../../../shared/preferences';
-import { useProgressSaver } from '../../../shared/progress';
+import type { Item } from '../../../../shared/items';
+import { usePreferences } from '../../../../shared/preferences';
+import { useProgressSaver } from '../../../../shared/progress';
 import { clampPage, keyAction, type ReaderMode, type Step } from '../navigation';
 import { usePagePreload } from './usePagePreload';
 

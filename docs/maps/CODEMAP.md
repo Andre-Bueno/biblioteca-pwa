@@ -341,37 +341,41 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/src/features/library/hooks/useEnrich.ts` | Dispara `POST /library/enrich` e consulta `GET /library/enrich/status` a cada 2 s, no máximo 150 vezes | features |
 | `frontend/src/features/library/hooks/useLibrary.ts` | Lista de séries (`listSeries`), busca com debounce (350 ms), tamanho de página 30 | features |
 | `frontend/src/features/library/hooks/useContinueReading.ts` | Carrega a prateleira; falha só esconde a prateleira | features |
-| `frontend/src/features/reader-manga/index.ts` | Exporta `MangaReaderPage` | features |
-| `frontend/src/features/reader-manga/README.md` | Escopo do leitor de mangá | docs |
-| `frontend/src/features/reader-manga/reader.css` | Estilos do leitor | features |
-| `frontend/src/features/reader-manga/navigation.ts` | Lógica pura: `clampPage`, `tapZone`, `swipeStep`, `keyAction`; constantes de toque | features |
-| `frontend/src/features/reader-manga/components/MangaReaderPage.tsx` | Tela `/ler/:itemId`: estados de carregamento, não encontrado, erro, formato não suportado e item sem páginas | features |
-| `frontend/src/features/reader-manga/components/PagedViewport.tsx` | Modos RTL e LTR (uma página por vez), `aria-label` com instruções | features |
-| `frontend/src/features/reader-manga/components/VerticalViewport.tsx` | Modo vertical (tira contínua), monta só a janela ao redor da página atual | features |
-| `frontend/src/features/reader-manga/components/ReaderControls.tsx` | Barra de controles: voltar, seletor de página, zoom (`aria-pressed`), modo de leitura (`SegmentedControl`) | features |
-| `frontend/src/features/reader-manga/hooks/useReaderData.ts` | Carrega item e progresso (404 = começar na página 0) antes de montar o leitor | features |
-| `frontend/src/features/reader-manga/hooks/useReaderState.ts` | Estado do leitor: página, modo, zoom, controles, teclado, pré-carregamento e salvamento de progresso | features |
-| `frontend/src/features/reader-manga/hooks/usePagePreload.ts` | Pré-carrega 2 páginas à frente; mantém no máximo 8 e 2 atrás | features |
-| `frontend/src/features/reader-manga/hooks/useVerticalStrip.ts` | Janela da tira vertical (`STRIP_WINDOW` = 3, ou seja 7 páginas) e posição inicial | features |
-| `frontend/src/features/reader-manga/hooks/useViewportGestures.ts` | Toque, deslize e duplo toque (com limite de movimento) | features |
-| `frontend/src/features/reader-manga/components/ChapterEnd.tsx` | Fim do capítulo com série: próximo e anterior capítulo | features |
-| `frontend/src/features/reader-epub/index.ts` | Exporta `EpubReaderPage` | features |
-| `frontend/src/features/reader-epub/README.md` | Escopo do leitor EPUB: capítulo em `iframe sandbox="allow-same-origin"`, sem `allow-scripts` | docs |
-| `frontend/src/features/reader-epub/epub.css` | Estilos do leitor EPUB e do frame | features |
-| `frontend/src/features/reader-epub/locator.ts` | Lógica pura do locator de livro (`capítulo * 10000 + offset_bp`), links `?goto=`, teclas e gestos | features |
-| `frontend/src/features/reader-epub/components/EpubReaderPage.tsx` | Tela do leitor EPUB (`/ler/:itemId` para livros): estados, frame, barras, painéis, botão ☰ "Mostrar controles" e indicador de canto (`epub-pill`) | features |
-| `frontend/src/features/reader-epub/components/EpubControls.tsx` | Barra de controles do leitor EPUB (botão "Índice"; indicador `chapter-indicator` capítulo/total · %) | features |
-| `frontend/src/features/reader-epub/components/Drawer.tsx` | Gaveta (painel) genérica usada pelos painéis do leitor EPUB | features |
-| `frontend/src/features/reader-epub/components/TocDrawer.tsx` | Gaveta de índice (TOC) do livro | features |
-| `frontend/src/features/reader-epub/components/SettingsDrawer.tsx` | Gaveta de ajustes do livro (tamanho de fonte e tema do livro) | features |
-| `frontend/src/features/reader-epub/components/EpubEnd.tsx` | Fim de capítulo ou de livro | features |
-| `frontend/src/features/reader-epub/hooks/useEpubData.ts` | Carrega item, estrutura do livro e progresso | features |
-| `frontend/src/features/reader-epub/hooks/useEpubFrame.ts` | Frame do capítulo: restaura posição, lê rolagem e cliques em `a[href]` | features |
-| `frontend/src/features/reader-epub/hooks/useEpubReader.ts` | Estado do leitor: capítulo, painéis, preferências do livro, barras (`useAutoHideControls`; tecla `m`) e salvamento de progresso | features |
-| `frontend/src/features/reader-epub/hooks/useEpubStrip.ts` | Leitura vertical contínua: janela de iframes, posição, progresso e rolagem (modo "Vertical") | features |
-| `frontend/src/features/reader-epub/components/EpubStrip.tsx` | Tira vertical do livro: um iframe por capítulo, reserva de altura nos não montados | features |
-| `frontend/src/features/reader-epub/strip.ts` | Lógica pura da tira vertical: janela (1 antes, 3 depois), posição e altura do capítulo; `unlockDocumentHeight` (libera `html`/`body` 100% via CSSOM antes de medir) | features |
-| `frontend/src/features/reader-epub/pinch.ts` | Zoom sem efeito de posição: `createPinchGuard` (multitoque, bloqueio até 600 ms após o fim, expira em 2 s) e `createReflowHold` (segura a posição só na mudança de largura); constantes `PINCH_SETTLE_MS`, `PINCH_STALE_MS`, `RESIZE_HOLD_MS`, `RESIZE_EXTEND_MS`, `USER_SCROLL_MS` | features |
+| `frontend/src/features/reader/manga/README.md` | Escopo do leitor de mangá | docs |
+| `frontend/src/features/reader/manga/reader.css` | Estilos do leitor | features |
+| `frontend/src/features/reader/manga/navigation.ts` | Lógica pura: `clampPage`, `tapZone`, `swipeStep`, `keyAction`; constantes de toque | features |
+| `frontend/src/features/reader/manga/components/MangaReaderPage.tsx` | Tela `/ler/:itemId`: estados de carregamento, não encontrado, erro, formato não suportado e item sem páginas | features |
+| `frontend/src/features/reader/manga/components/PagedViewport.tsx` | Modos RTL e LTR (uma página por vez), `aria-label` com instruções | features |
+| `frontend/src/features/reader/manga/components/VerticalViewport.tsx` | Modo vertical (tira contínua), monta só a janela ao redor da página atual | features |
+| `frontend/src/features/reader/manga/components/ReaderControls.tsx` | Barra de controles: voltar, seletor de página, zoom (`aria-pressed`), modo de leitura (`SegmentedControl`) | features |
+| `frontend/src/features/reader/manga/hooks/useReaderData.ts` | Carrega item e progresso (404 = começar na página 0) antes de montar o leitor | features |
+| `frontend/src/features/reader/manga/hooks/useReaderState.ts` | Estado do leitor: página, modo, zoom, controles, teclado, pré-carregamento e salvamento de progresso | features |
+| `frontend/src/features/reader/manga/hooks/usePagePreload.ts` | Pré-carrega 2 páginas à frente; mantém no máximo 8 e 2 atrás | features |
+| `frontend/src/features/reader/manga/hooks/useVerticalStrip.ts` | Janela da tira vertical (`STRIP_WINDOW` = 3, ou seja 7 páginas) e posição inicial | features |
+| `frontend/src/features/reader/manga/hooks/useViewportGestures.ts` | Toque, deslize e duplo toque (com limite de movimento) | features |
+| `frontend/src/features/reader/manga/components/ChapterEnd.tsx` | Fim do capítulo com série: próximo e anterior capítulo | features |
+| `frontend/src/features/reader/epub/README.md` | Escopo do leitor EPUB: capítulo em `iframe sandbox="allow-same-origin"`, sem `allow-scripts` | docs |
+| `frontend/src/features/reader/epub/epub.css` | Estilos do leitor EPUB e do frame | features |
+| `frontend/src/features/reader/epub/locator.ts` | Lógica pura do locator de livro (`capítulo * 10000 + offset_bp`), links `?goto=`, teclas e gestos | features |
+| `frontend/src/features/reader/epub/components/EpubReaderPage.tsx` | Tela do leitor EPUB (`/ler/:itemId` para livros): estados, frame, barras, painéis, botão ☰ "Mostrar controles" e indicador de canto (`epub-pill`) | features |
+| `frontend/src/features/reader/epub/components/EpubControls.tsx` | Barra de controles do leitor EPUB (botão "Índice"; indicador `chapter-indicator` capítulo/total · %) | features |
+| `frontend/src/features/reader/epub/components/Drawer.tsx` | Gaveta (painel) genérica usada pelos painéis do leitor EPUB | features |
+| `frontend/src/features/reader/epub/components/TocDrawer.tsx` | Gaveta de índice (TOC) do livro | features |
+| `frontend/src/features/reader/epub/components/SettingsDrawer.tsx` | Gaveta de ajustes do livro (tamanho de fonte e tema do livro) | features |
+| `frontend/src/features/reader/epub/components/EpubEnd.tsx` | Fim de capítulo ou de livro | features |
+| `frontend/src/features/reader/epub/hooks/useEpubData.ts` | Carrega item, estrutura do livro e progresso | features |
+| `frontend/src/features/reader/epub/hooks/useEpubFrame.ts` | Frame do capítulo: restaura posição, lê rolagem e cliques em `a[href]` | features |
+| `frontend/src/features/reader/epub/hooks/useEpubReader.ts` | Estado do leitor: capítulo, painéis, preferências do livro, barras (`useAutoHideControls`; tecla `m`) e salvamento de progresso | features |
+| `frontend/src/features/reader/epub/hooks/useEpubStrip.ts` | Leitura vertical contínua: janela de iframes, posição, progresso e rolagem (modo "Vertical") | features |
+| `frontend/src/features/reader/epub/components/EpubStrip.tsx` | Tira vertical do livro: um iframe por capítulo, reserva de altura nos não montados | features |
+| `frontend/src/features/reader/epub/strip.ts` | Lógica pura da tira vertical: janela (1 antes, 3 depois), posição e altura do capítulo; `unlockDocumentHeight` (libera `html`/`body` 100% via CSSOM antes de medir) | features |
+| `frontend/src/features/reader/index.ts` | Exporta `EpubReaderPage` e `MangaReaderPage` (`/ler/:itemId`, escolhido por `app/ReaderRoute.tsx`) | features |
+| `frontend/src/features/reader/sources/types.ts` | Contrato `ReaderSource` (Strategy): `kind` (`pages` ou `chapters`), `unitCount`, `codec` do locator, `toc`, `capabilities`, `clampUnit`, `unitTitle`. Puro, sem React; ainda não usado pela UI | features |
+| `frontend/src/features/reader/sources/pagesSource.ts` | `ImagePagesSource` (mangá, PDF): locator é o índice da página; `pagesCodec` | features |
+| `frontend/src/features/reader/sources/chaptersSource.ts` | `BookChaptersSource` (EPUB): locator `capítulo * 10000 + offset_bp`, `chaptersCodec`; TOC vira unidades | features |
+| `frontend/src/features/reader/sources/selectSource.ts` | `selectSource(type, data)`: `book` vira capítulos; demais tipos viram páginas | features |
+| `frontend/src/features/reader/sources/index.ts` | Reexporta a fábrica, os codecs, `selectSource` e os tipos de `sources/` | features |
+| `frontend/src/features/reader/epub/pinch.ts` | Zoom sem efeito de posição: `createPinchGuard` (multitoque, bloqueio até 600 ms após o fim, expira em 2 s) e `createReflowHold` (segura a posição só na mudança de largura); constantes `PINCH_SETTLE_MS`, `PINCH_STALE_MS`, `RESIZE_HOLD_MS`, `RESIZE_EXTEND_MS`, `USER_SCROLL_MS` | features |
 | `frontend/src/features/reader-pdf/README.md` | Esqueleto (Fase 4). Não importar outras features | docs |
 | `frontend/src/features/progress/README.md` | Reservada: o código de progresso fica em `shared/progress` | docs |
 | `frontend/src/features/settings/index.ts` | Exporta `SettingsPage` | features |
@@ -480,6 +484,7 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/tests/unit/epub-strip.test.ts` | Lógica pura da tira vertical: janela, posição, altura e progresso | teste |
 | `frontend/tests/unit/epub-pinch.test.ts` | `createPinchGuard` (multitoque, toque perdido, reset, expiração) e `createReflowHold` (só largura, rolagem do usuário, extensão) | teste |
 | `frontend/tests/unit/reader-epub-vertical.test.tsx` | Leitor EPUB em modo vertical: tira, janela de capítulos, progresso e fim do livro; altura de capítulo com `html`/`body` 100%; barras em toque (tela cheia, toque no centro, ☰) | teste |
+| `frontend/tests/unit/reader-sources.test.ts` | `ImagePagesSource`, `BookChaptersSource` e `selectSource`: codec do locator por tipo de item, clamp, títulos, TOC e progresso; mesmo locator salvo lê diferente por tipo | teste |
 | `frontend/tests/unit/auto-hide-controls.test.ts` | `useAutoHideControls`: em toque começa oculto, toque mostra e oculta após o atraso; `keepAlive` reinicia a espera e `paused` mantém; com mouse nunca oculta por tempo | teste |
 | `frontend/tests/unit/progress-saver.test.ts` | Debounce, um envio por vez, retry, `flush` com `keepalive`, `dispose` | teste |
 | `frontend/tests/unit/preferences.test.tsx` | Não sobrescreve o servidor com padrões; edição enquanto o GET está pendente é mesclada; PUTs em série | teste |
@@ -493,6 +498,7 @@ Não existem ainda: adaptador de progresso para PDF, extratores CBR e PDF, rota 
 | `frontend/tests/regression/reg_001_epub_zoom_no_page_change.test.tsx` | reg_001 (issue #7): zoom/pinça no EPUB não troca capítulo, não move a posição e não salva progresso; tira vertical e capítulo único | teste |
 
 Removidos (entrega do MVP, 2026-11-20): `frontend/src/app/HomePage.tsx`, `frontend/src/app/useHealth.ts`, `frontend/tests/unit/home.test.tsx`. Removido em 2026-11-21: `frontend/src/features/library/components/ItemCard.tsx` (substituído por `SeriesCard.tsx`). Movido em 2026-11-21: `features/reader-manga/hooks/useReaderNav.ts` → `shared/series/useReaderNav.ts`.
+Movido em 2026-11-21 (leitor único, passos 1-2): `features/reader-manga/` → `features/reader/manga/`; `features/reader-epub/` → `features/reader/epub/`; `index.ts` antigos removidos (substituídos por `features/reader/index.ts`).
 
 ## Gerado (não versionar, não listar)
 

@@ -1,6 +1,6 @@
 # ARCHITECTURE
 
-Estado: 2026-11-21. Decisões: ADR 0001 (hexagonal, frontend por feature), ADR 0007 (usuários, SQLite WAL, composição), ADR 0008 (sessão), ADR 0009 (lockout), ADR 0010 (cache de imagem), ADR 0011 (proxy), ADR 0012 (backend serve o frontend), ADR 0013 (progresso e preferências no servidor), ADR 0014 (séries por pasta), ADR 0015 (metadados de fontes públicas), ADR 0016 (capas), ADR 0017 (CSP e iframe do EPUB; proposto), ADR 0018 (oitavo host e webhook; proposto).
+Estado: 2026-11-21. Decisões: ADR 0001 (hexagonal, frontend por feature), ADR 0007 (usuários, SQLite WAL, composição), ADR 0008 (sessão), ADR 0009 (lockout), ADR 0010 (cache de imagem), ADR 0011 (proxy), ADR 0012 (backend serve o frontend), ADR 0013 (progresso e preferências no servidor), ADR 0014 (séries por pasta), ADR 0015 (metadados de fontes públicas), ADR 0016 (capas), ADR 0017 (CSP e iframe do EPUB; proposto), ADR 0018 (oitavo host e webhook; proposto), ADR 0019 (leitor único e ReaderSource; proposto).
 
 ## Backend: camadas
 
@@ -37,7 +37,7 @@ Verificação: `backend/tests/architecture/test_layers.py` executa `importlinter
 
 Dependency-cruiser (`frontend/.dependency-cruiser.cjs`, verificação `npm run arch`): feature não importa feature nem `app`; `shared` não importa `features` nem `app`; sem ciclos; import resolvível; `src` não depende de devDependencies. Regras ESLint em `frontend/eslint.config.js` (canais de rede e `indexedDB` por pasta; `localStorage` e `sessionStorage` proibidos em todo lugar).
 
-Estrutura real: `app/` (rotas, providers, SW, aviso de versão, escolha do leitor) → `features/` (telas: `auth`, `library`, `reader-manga`, `reader-epub`, `settings`, `series`; esqueleto `reader-pdf`; `progress` só README) → `shared/` (`api-client`, `session`, `preferences`, `progress` (com flush-registry), `items` (com `useItem`), `series` (com `useReaderNav`), `system` (versão e aviso), `pwa` (estado do SW), `hooks`, `theme`, `ui`; `offline` só README).
+Estrutura real: `app/` (rotas, providers, SW, aviso de versão, escolha do leitor) → `features/` (telas: `auth`, `library`, `reader/` (`manga`, `epub`; `sources` = Strategy `ReaderSource`, ainda sem uso na UI), `settings`, `series`; esqueleto `reader-pdf`; `progress` só README) → `shared/` (`api-client`, `session`, `preferences`, `progress` (com flush-registry), `items` (com `useItem`), `series` (com `useReaderNav`), `system` (versão e aviso), `pwa` (estado do SW), `hooks`, `theme`, `ui`; `offline` só README).
 
 Cada feature usa `shared/` para dados (sessão, preferências, progresso, itens, séries, versão). Features não importam umas às outras.
 
@@ -130,7 +130,7 @@ Ordem de montagem (`main.py`): o último `add_middleware` é o mais externo. Cam
 | 3. Pacote lido com limites e sem caminho externo; DRM recusado | `adapters/extractors/epub.py`, `_epub_safe.py` |
 | 4. Capítulo: HTML sanitizado por allowlist; CSS por allowlist; imagens viram `/book/res/{rid}` | `adapters/extractors/_epub_html.py`, `_epub_css.py`, `epub.py` |
 | 5. Resposta com ETag e marcador interno; CSP do capítulo pelo middleware | `api/books.py`, `api/security_headers.py` |
-| 6. Tela: frame `sandbox="allow-same-origin"`; progresso pelo locator capítulo × 10000 + offset | `frontend/src/features/reader-epub/`, `shared/items/api.ts` |
+| 6. Tela: frame `sandbox="allow-same-origin"`; progresso pelo locator capítulo × 10000 + offset | `frontend/src/features/reader/epub/`, `shared/items/api.ts` |
 
 ## Fluxo de scan
 

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { pageUrl } from '../../../shared/items';
-import { ProtectedImage } from '../../../shared/ui';
+import { pageUrl } from '../../../../shared/items';
+import { ProtectedImage } from '../../../../shared/ui';
 import { STRIP_WINDOW, useVerticalStrip } from '../hooks/useVerticalStrip';
 import { useViewportGestures } from '../hooks/useViewportGestures';
 import type { ReaderState } from '../hooks/useReaderState';

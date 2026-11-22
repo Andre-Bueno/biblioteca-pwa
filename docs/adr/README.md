@@ -22,3 +22,4 @@ Uma decisão por arquivo. Aceito = imutável; mudar = novo ADR que substitui o a
 | [0016](0016-estrategia-de-capas.md) | Estratégia de capas (baixadas uma vez e servidas pelo app) | Aceito | 2026-11-21 |
 | [0017](0017-csp-e-iframe-sandbox-para-capitulos-epub.md) | CSP e iframe sandbox para capítulos de EPUB | Proposto | 2026-11-21 |
 | [0018](0018-oitavo-host-release-e-webhook-de-atualizacao.md) | Oitavo host (checagem de release) e webhook de atualização | Proposto | 2026-11-21 |
+| [0019](0019-leitor-unico-com-reader-source.md) | Leitor único em `features/reader` com ReaderSource (Strategy) | Proposto | 2026-11-21 |

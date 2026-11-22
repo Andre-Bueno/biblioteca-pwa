@@ -1,4 +1,4 @@
-import { BOOK_FONT_MAX, BOOK_FONT_MIN } from '../../shared/preferences';
+import { BOOK_FONT_MAX, BOOK_FONT_MIN } from '../../../shared/preferences';
 
 /** Progress locator of a book: `chapter_index * 10000 + offset_bp` (offset in basis points). */
 export const CHAPTER_STRIDE = 10000;

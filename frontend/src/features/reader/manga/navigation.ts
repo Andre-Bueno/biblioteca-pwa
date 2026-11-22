@@ -1,4 +1,4 @@
-import type { ReadingDirection } from '../../shared/preferences';
+import type { ReadingDirection } from '../../../shared/preferences';
 
 /** The reading mode and the saved preference share the same values: rtl, ltr, vertical. */
 export type ReaderMode = ReadingDirection;

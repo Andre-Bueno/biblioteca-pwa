@@ -6,7 +6,7 @@ import {
   USER_SCROLL_MS,
   createPinchGuard,
   createReflowHold,
-} from '../../src/features/reader-epub/pinch';
+} from '../../src/features/reader/epub/pinch';
 
 describe('createPinchGuard', () => {
   it('is not blocked before any touch, nor for a single finger', () => {

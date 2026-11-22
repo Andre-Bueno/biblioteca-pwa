@@ -1,4 +1,4 @@
-# features/reader-epub
+# features/reader/epub
 
 Leitor de EPUB (`/ler/:itemId` quando o item é `book`; a rota em `app/ReaderRoute.tsx` escolhe pelo tipo).
 O servidor entrega cada capítulo como documento HTML já saneado; ele vive **apenas** num `<iframe sandbox="allow-same-origin">` (nunca `allow-scripts`). O app lê só geometria de rolagem e `a[href]` do iframe.

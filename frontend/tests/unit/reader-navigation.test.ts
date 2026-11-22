@@ -4,7 +4,7 @@ import {
   keyAction,
   swipeStep,
   tapZone,
-} from '../../src/features/reader-manga/navigation';
+} from '../../src/features/reader/manga/navigation';
 
 describe('tapZone', () => {
   it('rtl: left edge goes forward, right edge goes back', () => {
