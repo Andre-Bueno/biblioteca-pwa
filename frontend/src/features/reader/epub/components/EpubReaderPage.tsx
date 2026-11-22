@@ -1,28 +1,56 @@
-import { useRef, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import type { BookInfo, Item, ItemState } from '../../../../shared/items';
+import { useEffect, useRef, useState } from 'react';
 import { usePreferences } from '../../../../shared/preferences';
-import '../../../../shared/ui';
-import { useEpubData } from '../hooks/useEpubData';
+import type { ReaderNav } from '../../../../shared/series';
+import type { ReaderData, ReaderReady } from '../../hooks/useReaderData';
+import type { UnitPosition } from '../../sources';
+import { ReaderGate } from '../../shell/ReaderGate';
+import { ReaderShell } from '../../shell/ReaderShell';
 import { useEpubReader } from '../hooks/useEpubReader';
-import { EpubControls } from './EpubControls';
-import { EpubEnd } from './EpubEnd';
 import { EpubStrip } from './EpubStrip';
-import { SettingsDrawer } from './SettingsDrawer';
-import { TocDrawer } from './TocDrawer';
 import '../epub.css';
 
+/** Where the reader was, so a mode switch (which remounts it) resumes right there. */
+interface ResumeStore {
+  get: (itemId: string) => UnitPosition | null;
+  set: (itemId: string, position: UnitPosition) => void;
+}
+
+function createResumeStore(): ResumeStore {
+  let last: { itemId: string; position: UnitPosition } | null = null;
+  return {
+    get: (itemId) => (last?.itemId === itemId ? last.position : null),
+    set: (itemId, position) => {
+      last = { itemId, position };
+    },
+  };
+}
+
 function Reader({
-  item,
-  book,
-  savedLocator,
+  ready,
+  nav,
+  resume,
 }: {
-  item: Item;
-  book: BookInfo;
-  savedLocator: number | null;
+  ready: ReaderReady;
+  nav: ReaderNav;
+  resume: ResumeStore;
 }) {
+  const { item, book, source, savedLocator } = ready;
+  // The saved position of the first mount; later mounts (mode switch) continue from the live one.
+  const [savedPosition] = useState(() => resume.get(item.id) ?? ready.savedPosition);
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const reader = useEpubReader({ frameRef, item, book, savedLocator });
+  const reader = useEpubReader({
+    frameRef,
+    item,
+    book,
+    nav,
+    source,
+    savedLocator,
+    savedPosition,
+  });
+  const { position } = reader;
+  useEffect(() => {
+    resume.set(item.id, position);
+  }, [resume, item.id, position]);
   return (
     <div className="epub" data-testid="epub-reader">
       {/*
@@ -37,7 +65,7 @@ function Reader({
           key={reader.frameKey}
           ref={frameRef}
           className="epub-frame"
-          title={`Livro ${book.title || item.title}, capítulo ${reader.chapter + 1} de ${reader.count}`}
+          title={`Livro ${reader.title}, capítulo ${reader.chapter + 1} de ${reader.count}`}
           src={reader.src}
           sandbox="allow-same-origin"
           referrerPolicy="no-referrer"
@@ -59,85 +87,33 @@ function Reader({
           </button>
         </div>
       )}
-      {reader.saveStatus === 'error' && (
-        <p className="epub-toast" role="status" data-testid="save-warning">
-          Não foi possível salvar o progresso. Tentando novamente…
-        </p>
-      )}
-      {!reader.controlsVisible && (
-        <button
-          type="button"
-          className="btn epub-reveal"
-          aria-label="Mostrar controles"
-          data-testid="show-controls"
-          onClick={reader.toggleControls}
-        >
-          ☰
-        </button>
-      )}
-      {!reader.controlsVisible && (
-        <div className="epub-pill" aria-hidden="true" data-testid="epub-pill">
-          {reader.chapter + 1}/{reader.count} · {reader.percent}%
-        </div>
-      )}
-      {reader.atEnd && <EpubEnd reader={reader} />}
-      {reader.controlsVisible && <EpubControls reader={reader} />}
-      {reader.panel === 'toc' && <TocDrawer reader={reader} />}
-      {reader.panel === 'settings' && <SettingsDrawer reader={reader} />}
+      <ReaderShell {...reader.shell} />
     </div>
   );
 }
 
-function Message({ children }: { children: ReactNode }) {
-  return (
-    <main className="epub-message" data-testid="reader-message">
-      {children}
-      <Link className="btn" to="/">
-        Voltar para a biblioteca
-      </Link>
-    </main>
-  );
-}
-
 interface EpubReaderPageProps {
-  /** The item, loaded by the reader route (which picked this reader from its type). */
-  itemState: ItemState;
-  retryItem: () => void;
+  data: ReaderData;
+  nav: ReaderNav;
+  retry: () => void;
 }
 
-/** Route screen for a book (`/ler/:itemId` when the item type is `book`). */
-export function EpubReaderPage({ itemState, retryItem }: EpubReaderPageProps) {
-  const { data, retry } = useEpubData(itemState, retryItem);
+/** Route screen for a source made of HTML chapters (`/ler/:itemId` when the item is a book). */
+export function EpubReaderPage({ data, nav, retry }: EpubReaderPageProps) {
   // The first src already uses the saved theme and size; the reading direction picks the mode.
-  const { loaded, preferences } = usePreferences();
+  const { preferences } = usePreferences();
   const vertical = preferences.reading_direction === 'vertical';
-
-  if (data.status === 'loading' || !loaded) {
-    return (
-      <div className="splash" role="status" aria-label="Carregando" data-testid="reader-loading">
-        <div className="spinner" />
-      </div>
-    );
-  }
-  if (data.status === 'notfound') return <Message>Livro não encontrado.</Message>;
-  if (data.status === 'error') {
-    return (
-      <Message>
-        Não foi possível abrir este livro.
-        <button type="button" className="btn" onClick={retry}>
-          Tentar novamente
-        </button>
-      </Message>
-    );
-  }
-  if (data.book.chapters.length === 0)
-    return <Message>Este livro não tem capítulos para ler.</Message>;
+  const [resume] = useState(createResumeStore);
   return (
-    <Reader
-      key={`${data.item.id}:${vertical ? 'v' : 'p'}`}
-      item={data.item}
-      book={data.book}
-      savedLocator={data.savedLocator}
-    />
+    <ReaderGate data={data} retry={retry}>
+      {(ready) => (
+        <Reader
+          key={`${ready.item.id}:${vertical ? 'v' : 'p'}`}
+          ready={ready}
+          nav={nav}
+          resume={resume}
+        />
+      )}
+    </ReaderGate>
   );
 }

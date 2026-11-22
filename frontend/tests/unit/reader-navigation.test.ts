@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  clampPage,
-  keyAction,
-  swipeStep,
-  tapZone,
-} from '../../src/features/reader/manga/navigation';
+import { keyAction, swipeStep, tapZone } from '../../src/features/reader/manga/navigation';
 
 describe('tapZone', () => {
   it('rtl: left edge goes forward, right edge goes back', () => {
@@ -54,15 +49,5 @@ describe('keyAction', () => {
     expect(keyAction('End', 'rtl')).toBe('last');
     expect(keyAction('ArrowDown', 'vertical')).toBeNull();
     expect(keyAction('a', 'rtl')).toBeNull();
-  });
-});
-
-describe('clampPage', () => {
-  it('keeps the page inside 0..count-1', () => {
-    expect(clampPage(-3, 10)).toBe(0);
-    expect(clampPage(99, 10)).toBe(9);
-    expect(clampPage(4.7, 10)).toBe(4);
-    expect(clampPage(5, 0)).toBe(0);
-    expect(clampPage(Number.NaN, 10)).toBe(0);
   });
 });

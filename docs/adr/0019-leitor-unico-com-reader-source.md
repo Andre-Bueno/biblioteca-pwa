@@ -39,3 +39,18 @@
 - Obrigações:
   - Não mudar o formato do locator sem novo ADR.
   - Ao migrar a UI para `ReaderSource`, atualizar este ADR por um novo que o substitua, se a decisão mudar.
+
+## Andamento
+
+Status continua Proposto. A decisão acima não mudou; esta seção só registra o estado no disco. A linha "Escopo desta decisão" descreve o passo 2; o estado atual é o da tabela abaixo.
+
+| Passo | Estado (2026-11-21) | Onde |
+|---|---|---|
+| 1. Pasta `features/reader/` | Concluído | `frontend/src/features/reader/` |
+| 2. `ReaderSource` e `selectSource` | Concluído | `reader/sources/` |
+| 3. Hook único de dados e progresso; shell compartilhado | Concluído | `reader/hooks/`, `reader/shell/` |
+| 4. `ReaderRoute` e `useReaderKind` pela fonte; leitor EPUB com `createResumeStore`; remoção dos componentes duplicados | Concluído | `app/ReaderRoute.tsx`, `app/useReaderKind.ts`, `reader/epub/components/EpubReaderPage.tsx` |
+| 5. Fonte EPUB honra direção | Pendente (`honorsDirection` = `false`) | `reader/sources/chaptersSource.ts` |
+| 6 a 8 | Pendentes; conteúdo não definido nos documentos do repositório | — |
+
+Pendências de documentação: classes próprias das features (`epub-*`, `viewport`, `strip`) continuam fora do padrão `reader-*`; só o shell usa `reader-*`.

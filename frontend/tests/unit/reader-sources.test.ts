@@ -92,7 +92,7 @@ describe('BookChaptersSource', () => {
       textSettings: true,
       zoomToggle: false,
       edgeTapsStep: false,
-      honorsDirection: true,
+      honorsDirection: false,
     });
   });
 

@@ -176,12 +176,12 @@ describe('reader: memory and accessibility', () => {
     );
     await openReader({ saved: 4, direction: 'rtl', pages: 30 });
     expect(srcs).toEqual(['/api/v1/items/item-1/pages/5', '/api/v1/items/item-1/pages/6']);
-    fireEvent.change(screen.getByTestId('page-slider'), { target: { value: '21' } }); // page 20
+    fireEvent.change(screen.getByTestId('page-slider'), { target: { value: '20' } }); // 0-based: page 21
     expect(srcs.slice(2)).toEqual([
       '/api/v1/items/item-1/pages/21',
       '/api/v1/items/item-1/pages/22',
     ]);
-    fireEvent.change(screen.getByTestId('page-slider'), { target: { value: '5' } }); // back to 4
+    fireEvent.change(screen.getByTestId('page-slider'), { target: { value: '4' } }); // 0-based: back to page 5
     // 5 and 6 were evicted while far away, so they are requested again (from the HTTP cache).
     expect(srcs.slice(4)).toEqual(['/api/v1/items/item-1/pages/5', '/api/v1/items/item-1/pages/6']);
   });

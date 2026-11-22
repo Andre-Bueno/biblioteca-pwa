@@ -1,23 +1,17 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useItem, type ItemState } from '../shared/items';
-
-export type ReaderKind = 'manga' | 'book';
+import type { ReaderData, SourceKind } from '../features/reader';
 
 /**
- * Picks the reader for `/ler/:itemId` from the item type. The item is loaded ONCE here and passed
- * down. The last known kind is kept while the next item loads, so moving between chapters of the
- * same kind keeps the reader (and its series data) mounted. Until the first answer, and for
- * errors / unknown types, the manga reader renders: it already shows loading and error states.
+ * Picks the reader screen from the source the data hook chose for the item. The last known kind
+ * is kept while the next item loads, so moving between chapters of the same kind keeps the reader
+ * (and its series data) mounted. Until the first answer, and for errors / unsupported types, the
+ * page reader renders: it already shows loading and error states.
  */
-export function useReaderKind(): { kind: ReaderKind; itemState: ItemState; retryItem: () => void } {
-  const { itemId = '' } = useParams();
-  const { state, retry } = useItem(itemId);
-  const [kind, setKind] = useState<ReaderKind>('manga');
-  if (state.status === 'ready') {
-    const next: ReaderKind = state.item.type === 'book' ? 'book' : 'manga';
-    if (next !== kind) setKind(next);
-    return { kind: next, itemState: state, retryItem: retry };
+export function useReaderKind(data: ReaderData): SourceKind {
+  const [kind, setKind] = useState<SourceKind>('pages');
+  if (data.status === 'ready') {
+    if (data.source.kind !== kind) setKind(data.source.kind);
+    return data.source.kind;
   }
-  return { kind, itemState: state, retryItem: retry };
+  return kind;
 }

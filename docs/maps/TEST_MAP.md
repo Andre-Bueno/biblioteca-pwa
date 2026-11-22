@@ -141,11 +141,12 @@ Mapeamento finding → teste: FIND-001 → reg_006; FIND-002 → reg_007; FIND-0
 | `frontend/tests/unit/series.test.tsx` | 16 | Tela de série: capa, "continuar"/"começar a ler", capítulos em janela, "ir para o capítulo N", descrição (texto puro, badge de idioma, link https), vazio, 404 e erro com nova tentativa |
 | `frontend/tests/unit/series-books.test.tsx` | 9 | Série de livros: rótulo "Livro" sem contagem de páginas, progresso em %, `kind` e `type` (com fallback para respostas antigas), "continuar" de livro e cartão na biblioteca |
 | `frontend/tests/unit/metadata.test.tsx` | 32 | Painel admin (invisível para usuário comum, recolhido, busca só por clique, usar candidato, edição com limites, remoção com confirmação, 429); botão "Atualizar metadados"; origem e atribuição; links só https; `Cover` |
-| `frontend/tests/unit/reader.test.tsx` | 28 | Leitor de mangá: retomada, modos RTL/LTR/vertical, zoom, pré-carregamento, salvamento (debounce, `pagehide`, aba oculta, saída, falha com aviso) |
+| `frontend/tests/unit/reader.test.tsx` | 32 | Leitor de mangá: retomada, modos RTL/LTR/vertical, barras ocultas em toque, pílula "n / N", painel Aa (modo, sem fonte/tema), slider espelhado (dir=rtl), zoom, pré-carregamento, salvamento (debounce, `pagehide`, aba oculta, saída, falha com aviso) |
 | `frontend/tests/unit/reader-series.test.tsx` | 8 | Leitor com série: próximo e anterior no fim do capítulo, "voltar" para a série, sem série o leitor se comporta como antes |
 | `frontend/tests/unit/reader-vertical.test.tsx` | 11 | Modo vertical sem regredir o progresso salvo; janela de páginas; memória limitada; região viva e teclado |
-| `frontend/tests/unit/reader-navigation.test.ts` | 10 | Lógica pura: zonas de toque, deslize, teclas, `clampPage` |
-| `frontend/tests/unit/reader-epub.test.tsx` | 49 | Leitor EPUB: capítulos, progresso, painéis e preferências do livro |
+| `frontend/tests/unit/reader-navigation.test.ts` | 9 | Lógica pura: zonas de toque, deslize, teclas |
+| `frontend/tests/unit/reader-data.test.tsx` | 11 | `useReaderData` (fonte por tipo, locator salvo, 404, não suportado, retry sem carga dupla) e `useReaderProgress` (linha de base, primeira visita, codec) |
+| `frontend/tests/unit/reader-epub.test.tsx` | 51 | Leitor EPUB: capítulos, progresso, painéis e preferências do livro; fim de livro; troca para vertical e volta mantendo o capítulo; slider sem espelho (texto) |
 | `frontend/tests/unit/epub-locator.test.ts` | 17 | Locator de livro (`capítulo * 10000 + offset_bp`), lógica pura do leitor EPUB e sandbox de todos os iframes do leitor (página e tira) |
 | `frontend/tests/unit/epub-strip.test.ts` | 7 | Tira vertical do EPUB: janela de capítulos, posição, altura e conversão de posição |
 | `frontend/tests/unit/epub-pinch.test.ts` | 9 | `createPinchGuard` (multitoque, toque perdido, reset, expiração) e `createReflowHold` (só largura, rolagem do usuário, extensão) |

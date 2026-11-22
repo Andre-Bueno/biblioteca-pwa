@@ -139,7 +139,7 @@ describe('manga reader', () => {
       await openReader({ saved: 0 });
       const slider = screen.getByTestId('page-slider');
       expect(slider).toHaveAttribute('dir', 'rtl');
-      fireEvent.change(slider, { target: { value: '7' } });
+      fireEvent.change(slider, { target: { value: '6' } }); // 0-based: page 7
       expect(pageSrc()).toBe('/api/v1/items/item-1/pages/6');
       expect(screen.getByTestId('page-indicator')).toHaveTextContent('7 / 10');
     });
@@ -187,7 +187,7 @@ describe('manga reader', () => {
       Element.prototype.scrollIntoView = scrollIntoView;
       await openReader({ direction: 'vertical' });
       scrollIntoView.mockClear();
-      fireEvent.change(screen.getByTestId('page-slider'), { target: { value: '6' } });
+      fireEvent.change(screen.getByTestId('page-slider'), { target: { value: '5' } }); // 0-based: page 6
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
       expect((scrollIntoView.mock.contexts[0] as HTMLElement).dataset.page).toBe('5');
       // @ts-expect-error restore jsdom's lack of scrollIntoView
@@ -199,6 +199,7 @@ describe('manga reader', () => {
     it('switches between the three modes in the reader, keeping the page', async () => {
       await openReader({ saved: 4 });
       const user = userEvent.setup();
+      await user.click(screen.getByTestId('open-settings')); // the mode lives in the Aa panel
       await user.click(screen.getByTestId('reader-mode-vertical'));
       expect(screen.getByTestId('reader-strip')).toBeInTheDocument();
       expect(screen.getByTestId('page-indicator')).toHaveTextContent('5 / 10');
@@ -229,6 +230,33 @@ describe('manga reader', () => {
       expect(screen.getByTestId('reader-controls')).toBeInTheDocument(); // no single-tap toggle
       await userEvent.setup().click(screen.getByTestId('zoom-toggle'));
       expect(viewport).toHaveAttribute('data-zoomed', 'false');
+    });
+
+    it('on a touch device the bars start hidden, a "n / N" pill shows, and m or the button bring them back', async () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn((query: string) => ({
+          matches: query.includes('pointer: coarse'),
+          media: query,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        })),
+      );
+      await openReader({ saved: 4 });
+      expect(screen.queryByTestId('reader-controls')).not.toBeInTheDocument();
+      expect(screen.getByTestId('page-indicator')).toHaveTextContent('5 / 10');
+      fireEvent.keyDown(window, { key: 'm' });
+      expect(await screen.findByTestId('reader-controls')).toBeInTheDocument();
+      expect(screen.getByTestId('open-settings')).toBeInTheDocument();
+      expect(screen.queryByTestId('open-toc')).not.toBeInTheDocument(); // pages have no index
+    });
+
+    it('the Aa panel holds the reading mode but no font or theme for pages', async () => {
+      await openReader();
+      await userEvent.setup().click(screen.getByTestId('open-settings'));
+      expect(screen.getByTestId('reader-mode')).toBeInTheDocument();
+      expect(screen.queryByTestId('font-larger')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('book-theme')).not.toBeInTheDocument();
     });
 
     it('turning the page resets the zoom', async () => {
@@ -355,5 +383,59 @@ describe('manga reader', () => {
       await waitFor(() => expect(screen.queryByTestId('save-warning')).not.toBeInTheDocument());
       expect(putCalls().at(-1)!.body).toEqual({ locator: 6 });
     });
+  });
+});
+
+describe('manga reader: bars on a touch device', () => {
+  beforeEach(() => fakeApi.reset());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function stubTouch() {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('pointer: coarse'),
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+  }
+
+  it('hide by themselves 4 s after being shown, but not while the slider is held', async () => {
+    stubTouch();
+    await openReader({ saved: 4 });
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    fireEvent.keyDown(window, { key: 'm' });
+    expect(screen.getByTestId('reader-controls')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(3900));
+    expect(screen.getByTestId('reader-controls')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.queryByTestId('reader-controls')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'm' });
+    const slider = screen.getByTestId('page-slider');
+    fireEvent.pointerDown(slider);
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(screen.getByTestId('reader-controls')).toBeInTheDocument(); // held: stays up
+    fireEvent.pointerUp(slider);
+    act(() => vi.advanceTimersByTime(4100));
+    expect(screen.queryByTestId('reader-controls')).not.toBeInTheDocument();
+  });
+
+  it('switching the mode in the panel keeps the page and is saved as a preference', async () => {
+    await openReader({ saved: 4 });
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('open-settings'));
+    await user.click(screen.getByTestId('reader-mode-ltr'));
+    expect(pageSrc()).toBe('/api/v1/items/item-1/pages/4');
+    await waitFor(() =>
+      expect(fakeApi.callsTo('PUT', '/api/v1/me/preferences').at(-1)?.body).toMatchObject({
+        reading_direction: 'ltr',
+      }),
+    );
   });
 });

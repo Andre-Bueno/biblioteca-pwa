@@ -726,3 +726,32 @@ describe('EPUB reader: end of chapter and of the book', () => {
     expect(screen.getByTestId('reader-back')).toHaveAttribute('href', '/');
   });
 });
+
+describe('EPUB reader: reading mode switch', () => {
+  beforeEach(() => fakeApi.reset());
+
+  it('switching to vertical and back keeps the chapter being read, not the one it opened at', async () => {
+    setup('/ler/bk-1', { locator: null, prefs: PREFS });
+    await openFrame();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('chapter-next'));
+    await user.click(screen.getByTestId('chapter-next'));
+    expect(screen.getByTestId('chapter-indicator')).toHaveTextContent('Capítulo 3 de 3');
+    await user.click(screen.getByTestId('open-settings'));
+    await user.click(screen.getByTestId('reader-mode-vertical'));
+    expect(await screen.findByTestId('epub-strip')).toBeInTheDocument();
+    expect(screen.getByTestId('chapter-indicator')).toHaveTextContent('Capítulo 3 de 3');
+    await user.click(screen.getByTestId('open-settings'));
+    await user.click(screen.getByTestId('reader-mode-ltr'));
+    expect(await openFrame()).toHaveAttribute('src', chapterSrc(2));
+    expect(screen.getByTestId('chapter-indicator')).toHaveTextContent('Capítulo 3 de 3');
+    await waitFor(() => expect(prefPuts().length).toBeGreaterThan(0));
+    expect(prefPuts().at(-1)!.body).toMatchObject({ reading_direction: 'ltr' });
+  });
+
+  it('the slider is not mirrored for text (the direction is not honored yet)', async () => {
+    setup('/ler/bk-1', { prefs: PREFS });
+    await openFrame();
+    expect(screen.getByTestId('chapter-slider')).toHaveAttribute('dir', 'ltr');
+  });
+});

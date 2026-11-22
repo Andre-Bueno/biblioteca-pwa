@@ -1,57 +1,61 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Item } from '../../../../shared/items';
-import { usePreferences } from '../../../../shared/preferences';
-import { useProgressSaver } from '../../../../shared/progress';
-import { clampPage, keyAction, type ReaderMode, type Step } from '../navigation';
+import type { ReadingDirection } from '../../../../shared/preferences';
+import type { ReaderNav } from '../../../../shared/series';
+import { useReaderProgress } from '../../hooks/useReaderProgress';
+import type { ReaderShellProps } from '../../shell/ReaderShell';
+import { useReaderChrome, useUnitSlider } from '../../shell/useReaderChrome';
+import type { ReaderSource, UnitPosition } from '../../sources';
+import type { Step } from '../../shell/types';
+import { keyAction } from '../navigation';
 import { usePagePreload } from './usePagePreload';
 
 interface Params {
   item: Item;
+  source: ReaderSource;
+  nav: ReaderNav;
   savedLocator: number | null;
+  savedPosition: UnitPosition;
 }
 
-/** All reader behaviour: page, mode, zoom, controls, keyboard, preload and progress saving. */
-export function useReaderState({ item, savedLocator }: Params) {
-  const pageCount = item.page_count ?? 0;
-  const { preferences } = usePreferences();
-  const saver = useProgressSaver(item.id);
+/** Behaviour of the page reader: page, mode, zoom, keyboard, preload and what the shell shows. */
+export function useReaderState({ item, source, nav, savedLocator, savedPosition }: Params) {
+  const pageCount = source.unitCount;
+  const chrome = useReaderChrome();
+  const { reportPosition, saveStatus } = useReaderProgress(
+    item.id,
+    source,
+    savedLocator,
+    savedPosition,
+  );
 
-  const [initialPage] = useState(() => clampPage(savedLocator ?? 0, pageCount));
+  const [initialPage] = useState(savedPosition.unit);
   const [page, setPage] = useState(initialPage);
-  const [modeOverride, setModeOverride] = useState<ReaderMode | null>(null);
   const [zoomed, setZoomed] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
   // Vertical mode scrolls to a page when asked (slider, Home/End, mode switch).
   const [jump, setJump] = useState({ page: initialPage, nonce: 0 });
 
-  const mode: ReaderMode = modeOverride ?? preferences.reading_direction;
-
-  const { setBaseline, report } = saver;
-  useEffect(() => {
-    setBaseline(savedLocator);
-    // First visit: registers "page 1" so the item shows up in "continue reading".
-    if (pageCount > 0) report(initialPage);
-  }, [setBaseline, report, savedLocator, pageCount, initialPage]);
+  const { mode, changeMode: saveMode } = chrome;
 
   const goTo = useCallback(
     (target: number) => {
-      const next = clampPage(target, pageCount);
+      const next = source.clampUnit(target);
       setPage(next);
       setZoomed(false);
       setJump((previous) => ({ page: next, nonce: previous.nonce + 1 }));
-      report(next);
+      reportPosition(next);
     },
-    [pageCount, report],
+    [source, reportPosition],
   );
 
   /** Page reported by the scroll position in vertical mode (no scrolling back). */
   const onVisiblePage = useCallback(
     (visible: number) => {
-      const next = clampPage(visible, pageCount);
+      const next = source.clampUnit(visible);
       setPage(next);
-      report(next);
+      reportPosition(next);
     },
-    [pageCount, report],
+    [source, reportPosition],
   );
 
   const step = useCallback(
@@ -60,28 +64,20 @@ export function useReaderState({ item, savedLocator }: Params) {
   );
 
   const changeMode = useCallback(
-    (next: ReaderMode) => {
-      setModeOverride(next);
+    (next: ReadingDirection) => {
       setZoomed(false);
-      setJump((previous) => ({ page, nonce: previous.nonce + 1 }));
+      setJump((previous) => ({ page, nonce: previous.nonce + 1 })); // keep the page in the new mode
+      saveMode(next);
     },
-    [page],
+    [page, saveMode],
   );
 
-  const toggleControls = useCallback(() => setControlsVisible((value) => !value), []);
   const toggleZoom = useCallback(() => setZoomed((value) => !value), []);
 
+  const handleChromeKey = chrome.handleKey;
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === 'm' || event.key === 'M') {
-        // Keyboard way to bring the controls back (no tap needed).
-        if (target instanceof HTMLButtonElement) return;
-        setControlsVisible((value) => !value);
-        return;
-      }
+      if (handleChromeKey(event)) return;
       const action = keyAction(event.key, mode);
       if (!action) return;
       event.preventDefault();
@@ -91,9 +87,30 @@ export function useReaderState({ item, savedLocator }: Params) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, goTo, step, pageCount]);
+  }, [handleChromeKey, mode, goTo, step, pageCount]);
 
   usePagePreload(item.id, page, pageCount, mode !== 'vertical');
+
+  // Pages are cheap to open: the slider turns to the page as it moves.
+  const slider = useUnitSlider({ chrome, current: page, commit: goTo, delayMs: 0 });
+
+  const shell: ReaderShellProps = {
+    title: item.title,
+    source,
+    nav,
+    unit: page,
+    percent: source.codec.percent(page, 0, pageCount),
+    atEnd: pageCount > 0 && page >= pageCount - 1,
+    mode,
+    saveStatus,
+    chrome,
+    slider,
+    onStep: step,
+    onGoTo: goTo,
+    onModeChange: changeMode,
+    zoom: mode === 'vertical' ? null : { active: zoomed, toggle: toggleZoom },
+    text: null,
+  };
 
   return {
     item,
@@ -101,15 +118,13 @@ export function useReaderState({ item, savedLocator }: Params) {
     page,
     mode,
     zoomed,
-    controlsVisible,
     jump,
-    saveStatus: saver.status,
     goTo,
     step,
     onVisiblePage,
-    changeMode,
-    toggleControls,
+    toggleControls: chrome.toggle,
     toggleZoom,
+    shell,
   };
 }
 

@@ -6,6 +6,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versioname
 
 ### Changed
 - Frontend: leitores fundidos em features/reader (epub e manga) e abstração ReaderSource (Strategy) para leitor único; sem mudança de comportamento
+- Frontend: leitor de mangá com barras ocultas ao abrir e auto-ocultar após 4 s em dispositivo de toque, como o EPUB; pílula "n / N" no canto quando as barras estão ocultas
+- Frontend: modo de leitura (D→E, E→D, vertical) no painel "Aa" de ambos os leitores, salvo como preferência `reading_direction` em todos os formatos
+- Frontend: slider de página passa a ser 0-based e só é espelhado (dir=rtl) no mangá; o EPUB não espelha até a fonte honrar direção (passo 5 do leitor único)
+- Frontend: hook único de dados do leitor (`features/reader/hooks/useReaderData.ts`) e shell compartilhado (`features/reader/shell`) para mangá e EPUB; "‹ Livro anterior" no fim do livro; estados de carregamento e erro unificados em `ReaderGate`
 
 ## [0.1.6] - 2026-11-21
 

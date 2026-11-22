@@ -77,7 +77,7 @@ function StripFrame({ index, total, title, src, attachFrame }: FrameProps) {
 export function EpubStrip({ reader }: { reader: EpubReaderState }) {
   const { containerRef, mounted, heightOf, attachFrame } = reader.strip;
   const { count, chapterUrl } = reader;
-  const title = reader.book.title || reader.item.title;
+  const { title } = reader;
   return (
     <div
       ref={containerRef}

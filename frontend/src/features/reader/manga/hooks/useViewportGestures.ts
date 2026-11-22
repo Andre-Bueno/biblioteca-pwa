@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, type PointerEvent } from 'react';
-import { TAP_MAX_MOVE_PX, swipeStep, tapZone, type ReaderMode, type Step } from '../navigation';
+import type { ReadingDirection } from '../../../../shared/preferences';
+import type { Step } from '../../shell/types';
+import { TAP_MAX_MOVE_PX, swipeStep, tapZone } from '../navigation';
 
 export const DOUBLE_TAP_MS = 280;
 
 interface Options {
-  mode: ReaderMode;
+  mode: ReadingDirection;
   zoomed: boolean;
   onStep: (step: Step) => void;
   onCenterTap: () => void;

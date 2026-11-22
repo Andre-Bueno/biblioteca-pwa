@@ -47,10 +47,10 @@ export function Drawer({ title, testId, onClose, children }: DrawerProps) {
 
   return (
     <>
-      <div className="epub-backdrop" onClick={onClose} data-testid={`${testId}-backdrop`} />
+      <div className="reader-backdrop" onClick={onClose} data-testid={`${testId}-backdrop`} />
       <div
         ref={ref}
-        className="epub-drawer"
+        className="reader-drawer"
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -58,8 +58,8 @@ export function Drawer({ title, testId, onClose, children }: DrawerProps) {
         data-testid={testId}
         onKeyDown={onKeyDown}
       >
-        <header className="epub-drawer__header">
-          <h2 className="epub-drawer__title">{title}</h2>
+        <header className="reader-drawer__header">
+          <h2 className="reader-drawer__title">{title}</h2>
           <button
             type="button"
             className="btn"
