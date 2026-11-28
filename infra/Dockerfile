@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---- Stage 2: install the backend into a prefix (pip and the build backend stay here) ----
-FROM python:3.12.8-slim AS backend-build
+FROM python:3.15.1-slim AS backend-build
 # PIP_CONSTRAINT also reaches pip's isolated build environment, so setuptools is pinned too.
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_ROOT_USER_ACTION=ignore \
@@ -23,7 +23,7 @@ COPY backend/app /src/app
 RUN pip install --prefix=/install /src
 
 # ---- Stage 3: runtime ----
-FROM python:3.12.8-slim
+FROM python:3.15.1-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
